@@ -1,0 +1,134 @@
+Here's your updated StudentService without using Optional, enforcing primary key update restriction, sorting students by name in getStudents(), and deleting a student by name.
+
+
+---
+
+Updated StudentService
+
+package org.example.service;
+
+import org.example.dao.StudentRepository;
+import org.example.entity.Student;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+public class StudentService {
+
+    @Autowired
+    private StudentRepository studentRepository;
+
+    public Student createStudent(Student stu) {
+        return studentRepository.save(stu);
+    }
+
+    // Get all students sorted by name
+    public List<Student> getStudents() {
+        return studentRepository.findAll().stream()
+                .sorted((s1, s2) -> s1.getName().compareToIgnoreCase(s2.getName()))
+                .toList();
+    }
+
+    public Student getStudentById(Long sid) {
+        return studentRepository.findById(sid).orElse(null);
+    }
+
+    // Prevent primary key update and show error message
+    public Student updateStudent(Long sid, String name, String email) {
+        Student stu = studentRepository.findById(sid).orElse(null);
+        if (stu == null) {
+            throw new IllegalArgumentException("Student with ID " + sid + " not found.");
+        }
+        if (!stu.getId().equals(sid)) {
+            throw new IllegalArgumentException("Cannot update primary key (id).");
+        }
+        stu.setName(name);
+        stu.setEmail(email);
+        return studentRepository.save(stu);
+    }
+
+    // Delete student by name
+    public void deleteStudentByName(String name) {
+        Student stu = studentRepository.findByName(name);
+        if (stu == null) {
+            throw new IllegalArgumentException("Student with name " + name + " not found.");
+        }
+        studentRepository.delete(stu);
+    }
+}
+
+
+---
+
+Changes & Fixes:
+
+1. Removed Optional
+
+Used .orElse(null) instead.
+
+
+
+2. Sorting in getStudents()
+
+Now sorts by name instead of id using .sorted().
+
+
+
+3. Prevents Primary Key Update
+
+Throws an error if someone tries to change sid.
+
+
+
+4. Delete by Name
+
+Added deleteStudentByName(String name) method.
+
+Assumes StudentRepository has findByName(String name), which should be added.
+
+
+
+
+
+---
+
+Update StudentRepository
+
+package org.example.dao;
+
+import org.example.entity.Student;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface StudentRepository extends JpaRepository<Student, Long> {
+    Student findByName(String name); // Custom query to find by name
+}
+
+
+---
+
+Update StudentController
+
+@RestController
+@RequestMapping("/students")
+public class StudentController {
+
+    @Autowired
+    private StudentService studentService;
+
+    @DeleteMapping("/deleteByName/{name}")
+    public void deleteStudentByName(@PathVariable String name) {
+        studentService.deleteStudentByName(name);
+    }
+}
+
+Now, your API:
+
+Sorts students by name in getStudents().
+
+Prevents updating sid.
+
+Allows deleting students by their name.
+
+
