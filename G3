@@ -1,0 +1,373 @@
+I've updated your code to separate the Employee and Project entities properly. Now, you can save a project independently using a new saveProject method in the ProjectController. After saving, you can associate projects with employees.
+
+
+---
+
+1️⃣ Updated EmployeeController
+
+Added an endpoint to associate projects with an employee.
+
+
+package com.example.mappings.controller;
+
+import com.example.mappings.dao.EmployeeDAO;
+import com.example.mappings.entity.Employee;
+import com.example.mappings.entity.Project;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Set;
+
+@RestController
+@RequestMapping("/employees")
+public class EmployeeController {
+
+    private final EmployeeDAO employeeDAO;
+
+    @Autowired
+    public EmployeeController(EmployeeDAO employeeDAO) {
+        this.employeeDAO = employeeDAO;
+    }
+
+    @PostMapping
+    public Employee createEmployee(@RequestBody Employee employee) {
+        employee.getEmploymentHistories().forEach(emp -> emp.setEmployee(employee));
+        return employeeDAO.save(employee);
+    }
+
+    @GetMapping("/{id}")
+    public Employee getEmployeeById(@PathVariable int id) {
+        return employeeDAO.findById(id)
+                .orElseThrow(() -> new RuntimeException("Employee not found with ID: " + id));
+    }
+
+    @PutMapping("/{id}/assign-projects")
+    public Employee assignProjectsToEmployee(@PathVariable int id, @RequestBody Set<Project> projects) {
+        Employee employee = employeeDAO.findById(id)
+                .orElseThrow(() -> new RuntimeException("Employee not found with ID: " + id));
+
+        employee.getProjects().addAll(projects);
+        return employeeDAO.save(employee);
+    }
+}
+
+
+---
+
+2️⃣ New ProjectController
+
+New method to save projects separately.
+
+
+package com.example.mappings.controller;
+
+import com.example.mappings.dao.ProjectDAO;
+import com.example.mappings.entity.Project;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/projects")
+public class ProjectController {
+
+    private final ProjectDAO projectDAO;
+
+    @Autowired
+    public ProjectController(ProjectDAO projectDAO) {
+        this.projectDAO = projectDAO;
+    }
+
+    @PostMapping
+    public Project saveProject(@RequestBody Project project) {
+        return projectDAO.save(project);
+    }
+
+    @GetMapping
+    public List<Project> getAllProjects() {
+        return projectDAO.findAll();
+    }
+}
+
+
+---
+
+3️⃣ Updated ProjectDAO and ProjectDAOImpl
+
+Interface
+
+package com.example.mappings.dao;
+
+import com.example.mappings.entity.Project;
+import java.util.List;
+
+public interface ProjectDAO {
+    Project save(Project project);
+    List<Project> findAll();
+}
+
+Implementation
+
+package com.example.mappings.dao;
+
+import com.example.mappings.entity.Project;
+import jakarta.persistence.EntityManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+@Repository
+public class ProjectDAOImpl implements ProjectDAO {
+
+    private final EntityManager entityManager;
+
+    @Autowired
+    public ProjectDAOImpl(EntityManager entityManager) {
+        this.entityManager = entityManager;
+    }
+
+    @Override
+    @Transactional
+    public Project save(Project project) {
+        entityManager.persist(project);
+        return project;
+    }
+
+    @Override
+    public List<Project> findAll() {
+        return entityManager.createQuery("FROM Project", Project.class).getResultList();
+    }
+}
+
+
+---
+
+4️⃣ Updated Employee Entity
+
+Many-to-Many Mapping with Project (Projects added later).
+
+
+package com.example.mappings.entity;
+
+import jakarta.persistence.*;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+@Entity
+@Table(name = "employee")
+public class Employee {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private int id;
+
+    @Column(name = "name")
+    private String name;
+
+    @Column(name = "email")
+    private String email;
+
+    @ElementCollection
+    @CollectionTable(name = "employee_skills", joinColumns = @JoinColumn(name = "employee_id"))
+    @Column(name = "skill")
+    private Set<String> skills = new HashSet<>();
+
+    @OneToMany(mappedBy = "employee", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<EmploymentHistory> employmentHistories;
+
+    @Embedded
+    private Address address;
+
+    @ManyToMany
+    @JoinTable(
+        name = "employee_project",
+        joinColumns = @JoinColumn(name = "employee_id"),
+        inverseJoinColumns = @JoinColumn(name = "project_id")
+    )
+    private Set<Project> projects = new HashSet<>();
+
+    public Employee() {
+    }
+
+    public Employee(String name, String email, Set<String> skills, List<EmploymentHistory> employmentHistories, Address address, Set<Project> projects) {
+        this.name = name;
+        this.email = email;
+        this.skills = skills;
+        this.employmentHistories = employmentHistories;
+        this.address = address;
+        this.projects = projects;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public Set<String> getSkills() {
+        return skills;
+    }
+
+    public void setSkills(Set<String> skills) {
+        this.skills = skills;
+    }
+
+    public List<EmploymentHistory> getEmploymentHistories() {
+        return employmentHistories;
+    }
+
+    public void setEmploymentHistories(List<EmploymentHistory> employmentHistories) {
+        this.employmentHistories = employmentHistories;
+    }
+
+    public Address getAddress() {
+        return address;
+    }
+
+    public void setAddress(Address address) {
+        this.address = address;
+    }
+
+    public Set<Project> getProjects() {
+        return projects;
+    }
+
+    public void setProjects(Set<Project> projects) {
+        this.projects = projects;
+    }
+}
+
+
+---
+
+5️⃣ Updated Project Entity
+
+package com.example.mappings.entity;
+
+import jakarta.persistence.*;
+import java.util.HashSet;
+import java.util.Set;
+
+@Entity
+@Table(name = "project")
+public class Project {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private int id;
+
+    @Column(name = "project_name")
+    private String projectName;
+
+    @ManyToMany(mappedBy = "projects")
+    private Set<Employee> employees = new HashSet<>();
+
+    public Project() {
+    }
+
+    public Project(String projectName) {
+        this.projectName = projectName;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public String getProjectName() {
+        return projectName;
+    }
+
+    public void setProjectName(String projectName) {
+        this.projectName = projectName;
+    }
+
+    public Set<Employee> getEmployees() {
+        return employees;
+    }
+
+    public void setEmployees(Set<Employee> employees) {
+        this.employees = employees;
+    }
+}
+
+
+---
+
+6️⃣ Updated schema.sql
+
+CREATE TABLE employee (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(50),
+    email VARCHAR(50),
+    city VARCHAR(50),
+    state VARCHAR(50),
+    pin_code INT
+);
+
+CREATE TABLE employee_skills(
+    employee_id INT REFERENCES employee(id),
+    skill VARCHAR(50)
+);
+
+CREATE TABLE employment_history(
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    company_name VARCHAR(50),
+    experience INT,
+    job_title VARCHAR(50),
+    employee_id INT,
+    FOREIGN KEY (employee_id) REFERENCES employee(id)
+);
+
+CREATE TABLE project (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    project_name VARCHAR(50)
+);
+
+CREATE TABLE employee_project (
+    employee_id INT,
+    project_id INT,
+    PRIMARY KEY (employee_id, project_id),
+    FOREIGN KEY (employee_id) REFERENCES employee(id),
+    FOREIGN KEY (project_id) REFERENCES project(id)
+);
+
+
+---
+
+Final Updates Summary
+
+✅ Added saveProject method in ProjectController
+✅ Employees can be assigned to projects separately
+✅ Updated schema.sql accordingly
+✅ Employees and projects are managed independently
+
+Now you can save projects first and later assign them to employees. Let me know if you need further modifications!
+
