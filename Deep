@@ -1,0 +1,44 @@
+package com.example.demo.controller;
+
+import com.example.demo.model.Student;
+import com.example.demo.repository.StudentRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/students")
+public class StudentController {
+
+    @Autowired
+    private StudentRepository studentRepository;
+
+    // Update student API
+    @PutMapping("/{sid}")
+    public ResponseEntity<Map<Boolean, Student>> updateStudent(@PathVariable Long sid, @RequestBody Student std) {
+
+        Map<Boolean, Student> response = new HashMap<>();
+        boolean flag = false;
+
+        // Check if the student ID exists
+        Optional<Student> existingStudent = studentRepository.findById(sid);
+        if (existingStudent.isPresent()) {
+            // Update student fields
+            Student stu = existingStudent.get();
+            stu.setName(std.getName());
+            stu.setEmail(std.getEmail());
+            studentRepository.save(stu);
+            flag = true;
+            response.put(flag, stu);
+            return ResponseEntity.ok(response);
+        } else {
+            // If student does not exist, return false
+            response.put(flag, null);
+            return ResponseEntity.status(404).body(response);
+        }
+    }
+}
