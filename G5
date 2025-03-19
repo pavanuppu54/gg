@@ -1,0 +1,277 @@
+Here's the updated code for EmployeeController, ProjectController, and their respective DAO implementations to support assigning employees to projects and vice versa.
+
+
+---
+
+1️⃣ EmployeeController
+
+Assign projects to an employee using PUT /employees/{id}/assign-projects
+
+
+package com.example.mappings.controller;
+
+import com.example.mappings.dao.EmployeeDAO;
+import com.example.mappings.dao.ProjectDAO;
+import com.example.mappings.entity.Employee;
+import com.example.mappings.entity.Project;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Set;
+
+@RestController
+@RequestMapping("/employees")
+public class EmployeeController {
+
+    private final EmployeeDAO employeeDAO;
+    private final ProjectDAO projectDAO;
+
+    @Autowired
+    public EmployeeController(EmployeeDAO employeeDAO, ProjectDAO projectDAO) {
+        this.employeeDAO = employeeDAO;
+        this.projectDAO = projectDAO;
+    }
+
+    @PostMapping
+    public Employee createEmployee(@RequestBody Employee employee) {
+        employee.getEmploymentHistories().forEach(emp -> emp.setEmployee(employee));
+        return employeeDAO.save(employee);
+    }
+
+    @GetMapping("/{id}")
+    public Employee getEmployeeById(@PathVariable int id) {
+        return employeeDAO.findById(id)
+                .orElseThrow(() -> new RuntimeException("Employee not found with ID: " + id));
+    }
+
+    @PutMapping("/{id}/assign-projects")
+    public Employee assignProjectsToEmployee(@PathVariable int id, @RequestBody Set<Integer> projectIds) {
+        Employee employee = employeeDAO.findById(id)
+                .orElseThrow(() -> new RuntimeException("Employee not found with ID: " + id));
+
+        Set<Project> projects = projectDAO.findByIds(projectIds);
+        employee.getProjects().addAll(projects);
+        return employeeDAO.save(employee);
+    }
+}
+
+
+---
+
+2️⃣ ProjectController
+
+Assign employees to a project using PUT /projects/{id}/assign-employees
+
+
+package com.example.mappings.controller;
+
+import com.example.mappings.dao.EmployeeDAO;
+import com.example.mappings.dao.ProjectDAO;
+import com.example.mappings.entity.Employee;
+import com.example.mappings.entity.Project;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Set;
+
+@RestController
+@RequestMapping("/projects")
+public class ProjectController {
+
+    private final ProjectDAO projectDAO;
+    private final EmployeeDAO employeeDAO;
+
+    @Autowired
+    public ProjectController(ProjectDAO projectDAO, EmployeeDAO employeeDAO) {
+        this.projectDAO = projectDAO;
+        this.employeeDAO = employeeDAO;
+    }
+
+    @PostMapping
+    public Project saveProject(@RequestBody Project project) {
+        return projectDAO.save(project);
+    }
+
+    @GetMapping("/{id}")
+    public Project getProjectById(@PathVariable int id) {
+        return projectDAO.findById(id)
+                .orElseThrow(() -> new RuntimeException("Project not found with ID: " + id));
+    }
+
+    @PutMapping("/{id}/assign-employees")
+    public Project assignEmployeesToProject(@PathVariable int id, @RequestBody Set<Integer> employeeIds) {
+        Project project = projectDAO.findById(id)
+                .orElseThrow(() -> new RuntimeException("Project not found with ID: " + id));
+
+        Set<Employee> employees = employeeDAO.findByIds(employeeIds);
+        project.getEmployees().addAll(employees);
+        return projectDAO.save(project);
+    }
+}
+
+
+---
+
+3️⃣ Updated EmployeeDAO
+
+package com.example.mappings.dao;
+
+import com.example.mappings.entity.Employee;
+import java.util.Optional;
+import java.util.Set;
+
+public interface EmployeeDAO {
+    Employee save(Employee employee);
+    Optional<Employee> findById(int id);
+    Set<Employee> findByIds(Set<Integer> ids);
+}
+
+
+---
+
+4️⃣ Updated EmployeeDAOImpl
+
+package com.example.mappings.dao;
+
+import com.example.mappings.entity.Employee;
+import jakarta.persistence.EntityManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+@Repository
+public class EmployeeDAOImpl implements EmployeeDAO {
+
+    private final EntityManager entityManager;
+
+    @Autowired
+    public EmployeeDAOImpl(EntityManager entityManager) {
+        this.entityManager = entityManager;
+    }
+
+    @Override
+    @Transactional
+    public Employee save(Employee employee) {
+        return entityManager.merge(employee);
+    }
+
+    @Override
+    public Optional<Employee> findById(int id) {
+        return Optional.ofNullable(entityManager.find(Employee.class, id));
+    }
+
+    @Override
+    public Set<Employee> findByIds(Set<Integer> ids) {
+        return ids.stream()
+                .map(id -> entityManager.find(Employee.class, id))
+                .filter(employee -> employee != null)
+                .collect(Collectors.toSet());
+    }
+}
+
+
+---
+
+5️⃣ Updated ProjectDAO
+
+package com.example.mappings.dao;
+
+import com.example.mappings.entity.Project;
+import java.util.Optional;
+import java.util.Set;
+
+public interface ProjectDAO {
+    Project save(Project project);
+    Optional<Project> findById(int id);
+    Set<Project> findByIds(Set<Integer> ids);
+}
+
+
+---
+
+6️⃣ Updated ProjectDAOImpl
+
+package com.example.mappings.dao;
+
+import com.example.mappings.entity.Project;
+import jakarta.persistence.EntityManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+@Repository
+public class ProjectDAOImpl implements ProjectDAO {
+
+    private final EntityManager entityManager;
+
+    @Autowired
+    public ProjectDAOImpl(EntityManager entityManager) {
+        this.entityManager = entityManager;
+    }
+
+    @Override
+    @Transactional
+    public Project save(Project project) {
+        return entityManager.merge(project);
+    }
+
+    @Override
+    public Optional<Project> findById(int id) {
+        return Optional.ofNullable(entityManager.find(Project.class, id));
+    }
+
+    @Override
+    public Set<Project> findByIds(Set<Integer> ids) {
+        return ids.stream()
+                .map(id -> entityManager.find(Project.class, id))
+                .filter(project -> project != null)
+                .collect(Collectors.toSet());
+    }
+}
+
+
+---
+
+Usage Example
+
+1️⃣ Assign Projects to an Employee
+
+API Endpoint:
+PUT /employees/{id}/assign-projects
+
+JSON Body:
+
+[1, 2, 3]  // Assign project IDs 1, 2, and 3 to the employee
+
+
+---
+
+2️⃣ Assign Employees to a Project
+
+API Endpoint:
+PUT /projects/{id}/assign-employees
+
+JSON Body:
+
+[4, 5, 6]  // Assign employee IDs 4, 5, and 6 to the project
+
+
+---
+
+Final Updates Summary
+
+✅ Added assignProjectsToEmployee in EmployeeController
+✅ Added assignEmployeesToProject in ProjectController
+✅ Updated DAO and DAOImpl to support fetching multiple records by IDs
+✅ Implemented findByIds method in DAO for batch fetching
+
+This makes the Employee-Project mapping fully functional! Let me know if you need any refinements.
+
