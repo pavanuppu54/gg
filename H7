@@ -1,0 +1,155 @@
+Here are JSON examples for all operations related to Employee-Project Mapping, including saving data, assigning projects to employees, and assigning employees to projects.
+
+
+---
+
+1️⃣ Save a New Employee
+
+API Endpoint: POST /employees
+
+JSON Input:
+
+{
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "address": {
+        "city": "New York",
+        "state": "NY",
+        "pinCode": 10001
+    },
+    "skills": ["Java", "Spring Boot"],
+    "employmentHistories": [
+        {
+            "companyName": "Tech Corp",
+            "experience": 3,
+            "jobTitle": "Software Engineer"
+        },
+        {
+            "companyName": "Innovate Ltd",
+            "experience": 2,
+            "jobTitle": "Backend Developer"
+        }
+    ]
+}
+
+
+---
+
+2️⃣ Save a New Project
+
+API Endpoint: POST /projects
+
+JSON Input:
+
+{
+    "projectName": "AI Development"
+}
+
+
+---
+
+3️⃣ Assign Projects to an Employee
+
+API Endpoint: PUT /employees/{id}/assign-projects
+(Replace {id} with an actual Employee ID)
+
+JSON Input:
+
+[1, 2, 3]  // Assign projects with IDs 1, 2, and 3 to the employee
+
+
+---
+
+4️⃣ Assign Employees to a Project
+
+API Endpoint: PUT /projects/{id}/assign-employees
+(Replace {id} with an actual Project ID)
+
+JSON Input:
+
+[4, 5, 6]  // Assign employees with IDs 4, 5, and 6 to the project
+
+
+---
+
+5️⃣ Retrieve an Employee with Projects
+
+API Endpoint: GET /employees/{id}
+(Replace {id} with an actual Employee ID)
+
+Example Response:
+
+{
+    "id": 1,
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "address": {
+        "city": "New York",
+        "state": "NY",
+        "pinCode": 10001
+    },
+    "skills": ["Java", "Spring Boot"],
+    "employmentHistories": [
+        {
+            "companyName": "Tech Corp",
+            "experience": 3,
+            "jobTitle": "Software Engineer"
+        }
+    ],
+    "projects": [
+        {
+            "id": 1,
+            "projectName": "AI Development"
+        },
+        {
+            "id": 2,
+            "projectName": "Cloud Migration"
+        }
+    ]
+}
+
+
+---
+
+6️⃣ Retrieve a Project with Employees
+
+API Endpoint: GET /projects/{id}
+(Replace {id} with an actual Project ID)
+
+Example Response:
+
+{
+    "id": 1,
+    "projectName": "AI Development",
+    "employees": [
+        {
+            "id": 4,
+            "name": "Alice Smith"
+        },
+        {
+            "id": 5,
+            "name": "Bob Johnson"
+        }
+    ]
+}
+
+
+---
+
+Final Steps
+
+1. First, save an employee and a project using POST requests.
+
+
+2. Then, assign projects to employees using PUT /employees/{id}/assign-projects.
+
+
+3. Or assign employees to projects using PUT /projects/{id}/assign-employees.
+
+
+4. Retrieve employee and project details using GET requests.
+
+
+
+This structure allows full control over employee-project assignments. Let me know if you need any modifications!
+
