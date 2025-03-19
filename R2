@@ -1,0 +1,108 @@
+Here's a simple EmployeeController without exception handling, which includes basic CRUD operations and mapping employees to projects.
+
+Updated EmployeeController
+
+@RestController
+@RequestMapping("/employees")
+public class EmployeeController {
+
+    @Autowired
+    private EmployeeService employeeService;
+
+    @PostMapping
+    public Employee createEmployee(@RequestBody Employee employee) {
+        employee.getEmploymentHistories().forEach(emp -> emp.setEmployee(employee));
+        return employeeService.saveEmployee(employee);
+    }
+
+    @GetMapping("/{id}")
+    public Employee getEmployeeById(@PathVariable Integer id) {
+        return employeeService.getEmployeeById(id);
+    }
+
+    @GetMapping
+    public List<Employee> getAllEmployees() {
+        return employeeService.getAllEmployees();
+    }
+
+    @PutMapping("/{id}")
+    public Employee updateEmployee(@PathVariable Integer id, @RequestBody Employee updatedEmployee) {
+        return employeeService.updateEmployee(id, updatedEmployee);
+    }
+
+    @DeleteMapping("/{id}")
+    public void deleteEmployee(@PathVariable Integer id) {
+        employeeService.deleteEmployee(id);
+    }
+
+    @PostMapping("/{employeeId}/projects/{projectId}")
+    public Employee assignProjectToEmployee(@PathVariable Integer employeeId, @PathVariable Integer projectId) {
+        return employeeService.assignProjectToEmployee(employeeId, projectId);
+    }
+}
+
+
+---
+
+Updated EmployeeService
+
+@Service
+public class EmployeeService {
+
+    @Autowired
+    private EmployeeRepository employeeRepository;
+
+    @Autowired
+    private ProjectRepository projectRepository;
+
+    @Transactional
+    public Employee saveEmployee(Employee employee) {
+        return employeeRepository.save(employee);
+    }
+
+    public Employee getEmployeeById(Integer id) {
+        return employeeRepository.findById(id).orElse(null);
+    }
+
+    public List<Employee> getAllEmployees() {
+        return employeeRepository.findAll();
+    }
+
+    public Employee updateEmployee(Integer id, Employee updatedEmployee) {
+        if (employeeRepository.existsById(id)) {
+            updatedEmployee.setId(id);
+            return employeeRepository.save(updatedEmployee);
+        }
+        return null;
+    }
+
+    public void deleteEmployee(Integer id) {
+        employeeRepository.deleteById(id);
+    }
+
+    @Transactional
+    public Employee assignProjectToEmployee(Integer employeeId, Integer projectId) {
+        Employee employee = employeeRepository.findById(employeeId).orElse(null);
+        Project project = projectRepository.findById(projectId).orElse(null);
+
+        if (employee != null && project != null) {
+            employee.getProjects().add(project);
+            return employeeRepository.save(employee);
+        }
+        return null;
+    }
+}
+
+
+---
+
+ProjectRepository
+
+@Repository
+public interface ProjectRepository extends JpaRepository<Project, Integer> {
+}
+
+
+---
+
+This version removes ResourceNotFoundException and handles missing entities by returning null. Let me know if you need further modifications!
