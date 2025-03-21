@@ -1,0 +1,378 @@
+✅ Updated Code with DTO Layer and Mappings
+
+
+---
+
+🛠️ 1️⃣ Why Add DTO Layer?
+
+DTO (Data Transfer Object) acts as a layer to separate the presentation layer from the entity layer, providing a clear structure.
+
+It prevents direct exposure of entity classes, improving security and flexibility.
+
+We'll create DTO classes (EmployeeDTO, AddressDTO, EmploymentHistoryDTO, and ProjectDTO) and map them inside the DTO layer itself.
+
+
+
+---
+
+✅ Updated Project Structure
+
+src/main/java/org/example
+ ├── controller
+ │      ├── EmployeeController.java
+ │      ├── ProjectController.java
+ │
+ ├── service
+ │      ├── EmployeeService.java
+ │      ├── ProjectService.java
+ │
+ ├── repository
+ │      ├── EmployeeRepository.java
+ │      ├── ProjectRepository.java
+ │
+ ├── entity
+ │      ├── Employee.java
+ │      ├── Project.java
+ │      ├── Address.java
+ │      ├── EmploymentHistory.java
+ │
+ ├── dto
+ │      ├── EmployeeDTO.java
+ │      ├── ProjectDTO.java
+ │      ├── AddressDTO.java
+ │      ├── EmploymentHistoryDTO.java
+ │
+ └── SpringBootApp.java
+
+
+---
+
+✅ 1️⃣ DTO Classes
+
+
+---
+
+📌 EmployeeDTO
+
+package org.example.dto;
+
+import lombok.Data;
+import org.example.entity.Address;
+import org.example.entity.EmploymentHistory;
+import org.example.entity.Project;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+@Data
+public class EmployeeDTO {
+
+    private Integer id;
+    private String name;
+    private String email;
+    private Set<String> skills = new HashSet<>();
+    private List<EmploymentHistoryDTO> employmentHistories;
+    private AddressDTO address;
+    private List<ProjectDTO> projects;
+
+    // Mapping from Entity to DTO
+    public static EmployeeDTO fromEntity(org.example.entity.Employee employee) {
+        EmployeeDTO dto = new EmployeeDTO();
+        dto.setId(employee.getId());
+        dto.setName(employee.getName());
+        dto.setEmail(employee.getEmail());
+        dto.setSkills(employee.getSkills());
+
+        // Map Employment History
+        dto.setEmploymentHistories(
+                employee.getEmploymentHistories().stream()
+                        .map(EmploymentHistoryDTO::fromEntity)
+                        .toList()
+        );
+
+        // Map Address
+        dto.setAddress(AddressDTO.fromEntity(employee.getAddress()));
+
+        // Map Projects
+        dto.setProjects(
+                employee.getProjects().stream()
+                        .map(ProjectDTO::fromEntity)
+                        .toList()
+        );
+
+        return dto;
+    }
+
+    // Mapping from DTO to Entity
+    public org.example.entity.Employee toEntity() {
+        org.example.entity.Employee employee = new org.example.entity.Employee();
+        employee.setId(this.id);
+        employee.setName(this.name);
+        employee.setEmail(this.email);
+        employee.setSkills(this.skills);
+
+        // Map Employment History
+        List<EmploymentHistory> histories = this.employmentHistories.stream()
+                .map(EmploymentHistoryDTO::toEntity)
+                .toList();
+        employee.setEmploymentHistories(histories);
+
+        // Map Address
+        employee.setAddress(this.address.toEntity());
+
+        // Map Projects
+        Set<Project> projectEntities = new HashSet<>();
+        if (this.projects != null) {
+            projectEntities = this.projects.stream()
+                    .map(ProjectDTO::toEntity)
+                    .collect(java.util.stream.Collectors.toSet());
+        }
+        employee.setProjects(projectEntities);
+
+        return employee;
+    }
+}
+
+
+---
+
+📌 AddressDTO
+
+package org.example.dto;
+
+import lombok.Data;
+import org.example.entity.Address;
+
+@Data
+public class AddressDTO {
+    private String city;
+    private String state;
+    private Integer pinCode;
+
+    public static AddressDTO fromEntity(Address address) {
+        AddressDTO dto = new AddressDTO();
+        dto.setCity(address.getCity());
+        dto.setState(address.getState());
+        dto.setPinCode(address.getPinCode());
+        return dto;
+    }
+
+    public Address toEntity() {
+        Address address = new Address();
+        address.setCity(this.city);
+        address.setState(this.state);
+        address.setPinCode(this.pinCode);
+        return address;
+    }
+}
+
+
+---
+
+📌 EmploymentHistoryDTO
+
+package org.example.dto;
+
+import lombok.Data;
+import org.example.entity.EmploymentHistory;
+
+@Data
+public class EmploymentHistoryDTO {
+    private Integer id;
+    private String companyName;
+    private String jobTitle;
+    private Integer experience;
+
+    public static EmploymentHistoryDTO fromEntity(EmploymentHistory history) {
+        EmploymentHistoryDTO dto = new EmploymentHistoryDTO();
+        dto.setId(history.getId());
+        dto.setCompanyName(history.getCompanyName());
+        dto.setJobTitle(history.getJobTitle());
+        dto.setExperience(history.getExperience());
+        return dto;
+    }
+
+    public EmploymentHistory toEntity() {
+        EmploymentHistory history = new EmploymentHistory();
+        history.setId(this.id);
+        history.setCompanyName(this.companyName);
+        history.setJobTitle(this.jobTitle);
+        history.setExperience(this.experience);
+        return history;
+    }
+}
+
+
+---
+
+📌 ProjectDTO
+
+package org.example.dto;
+
+import lombok.Data;
+import org.example.entity.Project;
+
+@Data
+public class ProjectDTO {
+    private Integer id;
+    private String projectName;
+
+    public static ProjectDTO fromEntity(Project project) {
+        ProjectDTO dto = new ProjectDTO();
+        dto.setId(project.getId());
+        dto.setProjectName(project.getProjectName());
+        return dto;
+    }
+
+    public Project toEntity() {
+        Project project = new Project();
+        project.setId(this.id);
+        project.setProjectName(this.projectName);
+        return project;
+    }
+}
+
+
+---
+
+✅ 2️⃣ Updated Service with DTO
+
+
+---
+
+EmployeeService.java
+
+@Service
+public class EmployeeService {
+
+    @Autowired
+    private EmployeeRepository employeeRepository;
+
+    @Autowired
+    private ProjectRepository projectRepository;
+
+    @Transactional
+    public EmployeeDTO saveEmployeeWithProjects(EmployeeDTO employeeDTO) {
+        var employee = employeeDTO.toEntity();
+
+        // Map Projects
+        Set<Project> projects = new HashSet<>();
+        if (employeeDTO.getProjects() != null) {
+            for (ProjectDTO projectDTO : employeeDTO.getProjects()) {
+                Project existingProject = projectRepository.findById(projectDTO.getId())
+                        .orElseThrow(() -> new RuntimeException("Project not found with ID: " + projectDTO.getId()));
+                projects.add(existingProject);
+            }
+        }
+        employee.setProjects(projects);
+
+        var savedEmployee = employeeRepository.save(employee);
+        return EmployeeDTO.fromEntity(savedEmployee);
+    }
+
+    public List<EmployeeDTO> getAllEmployees() {
+        return employeeRepository.findAll().stream()
+                .map(EmployeeDTO::fromEntity)
+                .toList();
+    }
+
+    public Optional<EmployeeDTO> getEmployeeById(Integer id) {
+        return employeeRepository.findById(id)
+                .map(EmployeeDTO::fromEntity);
+    }
+}
+
+
+---
+
+✅ 3️⃣ Updated Controller with DTO
+
+
+---
+
+EmployeeController.java
+
+@RestController
+@RequestMapping("/employees")
+public class EmployeeController {
+
+    @Autowired
+    private EmployeeService employeeService;
+
+    @PostMapping
+    public EmployeeDTO createEmployee(@RequestBody EmployeeDTO employeeDTO) {
+        return employeeService.saveEmployeeWithProjects(employeeDTO);
+    }
+
+    @GetMapping
+    public List<EmployeeDTO> getAllEmployees() {
+        return employeeService.getAllEmployees();
+    }
+
+    @GetMapping("/{id}")
+    public Optional<EmployeeDTO> getEmployeeById(@PathVariable Integer id) {
+        return employeeService.getEmployeeById(id);
+    }
+}
+
+
+---
+
+✅ 4️⃣ JSON Input and Output
+
+
+---
+
+📥 JSON Input:
+
+{
+  "name": "John Doe",
+  "email": "john.doe@example.com",
+  "skills": ["Java", "Spring Boot"],
+  "employmentHistories": [
+    {
+      "companyName": "TechCorp",
+      "jobTitle": "Software Engineer",
+      "experience": 3
+    }
+  ],
+  "address": {
+    "city": "Hyderabad",
+    "state": "Telangana",
+    "pinCode": 500032
+  },
+  "projects": [
+    { "id": 1 },
+    { "id": 2 }
+  ]
+}
+
+
+---
+
+📥 JSON Output:
+
+{
+  "id": 1,
+  "name": "John Doe",
+  "email": "john.doe@example.com",
+  "skills": ["Java", "Spring Boot"],
+  "employmentHistories": [
+    {
+      "companyName": "TechCorp",
+      "jobTitle": "Software Engineer",
+      "experience": 3
+    }
+  ],
+  "projects": [
+    { "id": 1, "projectName": "HR Management" },
+    { "id": 2, "projectName": "Inventory System" }
+  ]
+}
+
+
+---
+
+✅ This solution properly implements the DTO layer with bidirectional mapping. Let me know if you need any modifications or explanations! 🚀
+
