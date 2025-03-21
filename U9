@@ -1,0 +1,187 @@
+✅ Updated Project with Project Service and Controller
+
+
+---
+
+💡 Key Changes
+
+1. Added ProjectService and ProjectController classes.
+
+
+2. Follows the same DTO mapping structure for consistency.
+
+
+3. Provides endpoints to create, retrieve, and manage projects.
+
+
+
+
+---
+
+✅ 1️⃣ Project Service and Controller
+
+
+---
+
+📌 ProjectService.java
+
+package org.example.service;
+
+import org.example.dto.ProjectDTO;
+import org.example.entity.Project;
+import org.example.repository.ProjectRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class ProjectService {
+
+    @Autowired
+    private ProjectRepository projectRepository;
+
+    // Create project
+    public ProjectDTO createProject(ProjectDTO dto) {
+        Project project = dto.toEntity();
+        Project savedProject = projectRepository.save(project);
+        return ProjectDTO.fromEntity(savedProject);
+    }
+
+    // Get all projects
+    public List<ProjectDTO> getAllProjects() {
+        List<Project> projects = projectRepository.findAll();
+        return projects.stream()
+                .map(ProjectDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    // Get project by ID
+    public ProjectDTO getProjectById(Integer id) {
+        Project project = projectRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Project not found with ID: " + id));
+        return ProjectDTO.fromEntity(project);
+    }
+
+    // Update project
+    public ProjectDTO updateProject(Integer id, ProjectDTO dto) {
+        Project project = projectRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Project not found with ID: " + id));
+
+        project.setProjectName(dto.getProjectName());
+
+        Project updatedProject = projectRepository.save(project);
+        return ProjectDTO.fromEntity(updatedProject);
+    }
+
+    // Delete project
+    public void deleteProject(Integer id) {
+        projectRepository.deleteById(id);
+    }
+}
+
+
+---
+
+📌 ProjectController.java
+
+package org.example.controller;
+
+import org.example.dto.ProjectDTO;
+import org.example.service.ProjectService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/projects")
+public class ProjectController {
+
+    @Autowired
+    private ProjectService projectService;
+
+    // Create project
+    @PostMapping
+    public ProjectDTO createProject(@RequestBody ProjectDTO dto) {
+        return projectService.createProject(dto);
+    }
+
+    // Get all projects
+    @GetMapping
+    public List<ProjectDTO> getAllProjects() {
+        return projectService.getAllProjects();
+    }
+
+    // Get project by ID
+    @GetMapping("/{id}")
+    public ProjectDTO getProjectById(@PathVariable Integer id) {
+        return projectService.getProjectById(id);
+    }
+
+    // Update project
+    @PutMapping("/{id}")
+    public ProjectDTO updateProject(@PathVariable Integer id, @RequestBody ProjectDTO dto) {
+        return projectService.updateProject(id, dto);
+    }
+
+    // Delete project
+    @DeleteMapping("/{id}")
+    public void deleteProject(@PathVariable Integer id) {
+        projectService.deleteProject(id);
+    }
+}
+
+
+---
+
+✅ 2️⃣ JSON Input and Output
+
+
+---
+
+📥 JSON Input: Create Project
+
+{
+  "projectName": "AI Development"
+}
+
+
+---
+
+📥 JSON Output: Project Created
+
+{
+  "id": 1,
+  "projectName": "AI Development"
+}
+
+
+---
+
+📥 JSON Input: Update Project
+
+{
+  "projectName": "Cloud Migration"
+}
+
+
+---
+
+📥 JSON Output: Project Updated
+
+{
+  "id": 1,
+  "projectName": "Cloud Migration"
+}
+
+
+---
+
+✅ 3️⃣ Endpoints Overview
+
+
+---
+
+✅ With these classes, you can now easily create, retrieve, update, and delete projects using the DTO mapping structure. Let me know if you need further modifications or explanations! 🚀
