@@ -1,0 +1,235 @@
+✅ Updated ProjectController and ProjectService with DTO Layer
+
+Since you're now using DTOs across your project, you also need to update the ProjectController and ProjectService to align with the new DTO structure. This ensures consistency and maintains the separation of the DTO and Entity layers.
+
+
+---
+
+✅ 1️⃣ Updated ProjectDTO
+
+You already have the ProjectDTO class, but just to recap:
+
+package org.example.dto;
+
+import lombok.Data;
+import org.example.entity.Project;
+
+@Data
+public class ProjectDTO {
+    private Integer id;
+    private String projectName;
+
+    public static ProjectDTO fromEntity(Project project) {
+        ProjectDTO dto = new ProjectDTO();
+        dto.setId(project.getId());
+        dto.setProjectName(project.getProjectName());
+        return dto;
+    }
+
+    public Project toEntity() {
+        Project project = new Project();
+        project.setId(this.id);
+        project.setProjectName(this.projectName);
+        return project;
+    }
+}
+
+
+---
+
+✅ 2️⃣ Updated ProjectService.java
+
+Changes Made:
+
+DTO conversion happens inside the service class.
+
+The service handles the conversion between Entity → DTO and DTO → Entity.
+
+This makes the controller simpler and cleaner.
+
+
+
+
+---
+
+package org.example.service;
+
+import org.example.dto.ProjectDTO;
+import org.example.entity.Project;
+import org.example.repository.ProjectRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+public class ProjectService {
+
+    @Autowired
+    private ProjectRepository projectRepository;
+
+    // Save Project with DTO
+    public ProjectDTO saveProject(ProjectDTO projectDTO) {
+        Project project = projectDTO.toEntity();
+        Project savedProject = projectRepository.save(project);
+        return ProjectDTO.fromEntity(savedProject);
+    }
+
+    // Get All Projects as DTOs
+    public List<ProjectDTO> getAllProjects() {
+        List<Project> projects = projectRepository.findAll();
+        return projects.stream()
+                .map(ProjectDTO::fromEntity)
+                .toList();
+    }
+
+    // Get Project by ID as DTO
+    public Optional<ProjectDTO> getProjectById(Integer id) {
+        return projectRepository.findById(id)
+                .map(ProjectDTO::fromEntity);
+    }
+
+    // Delete Project by ID
+    public void deleteProject(Integer id) {
+        projectRepository.deleteById(id);
+    }
+}
+
+
+---
+
+✅ 3️⃣ Updated ProjectController.java
+
+Changes Made:
+
+The controller now uses DTOs in the request and response.
+
+This keeps the controller layer clean and concise, as all mapping logic is handled in the DTOs.
+
+
+
+
+---
+
+package org.example.controller;
+
+import org.example.dto.ProjectDTO;
+import org.example.service.ProjectService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/projects")
+public class ProjectController {
+
+    @Autowired
+    private ProjectService projectService;
+
+    // Create Project with DTO
+    @PostMapping
+    public ProjectDTO createProject(@RequestBody ProjectDTO projectDTO) {
+        return projectService.saveProject(projectDTO);
+    }
+
+    // Get All Projects as DTOs
+    @GetMapping
+    public List<ProjectDTO> getAllProjects() {
+        return projectService.getAllProjects();
+    }
+
+    // Get Project by ID as DTO
+    @GetMapping("/{id}")
+    public Optional<ProjectDTO> getProjectById(@PathVariable Integer id) {
+        return projectService.getProjectById(id);
+    }
+
+    // Delete Project by ID
+    @DeleteMapping("/{id}")
+    public void deleteProject(@PathVariable Integer id) {
+        projectService.deleteProject(id);
+    }
+}
+
+
+---
+
+✅ 4️⃣ JSON Input and Output Examples
+
+
+---
+
+📥 Create Project
+
+Endpoint: POST /projects
+
+Input:
+
+{
+  "projectName": "HR Management System"
+}
+
+Output:
+
+{
+  "id": 1,
+  "projectName": "HR Management System"
+}
+
+
+---
+
+📥 Get All Projects
+
+Endpoint: GET /projects
+
+Output:
+
+[
+    {
+        "id": 1,
+        "projectName": "HR Management System"
+    },
+    {
+        "id": 2,
+        "projectName": "Inventory Management"
+    }
+]
+
+
+---
+
+📥 Get Project by ID
+
+Endpoint: GET /projects/1
+
+Output:
+
+{
+  "id": 1,
+  "projectName": "HR Management System"
+}
+
+
+---
+
+✅ Key Benefits of Using DTO in Both Employee and Project
+
+1. Consistency: Both EmployeeController and ProjectController now handle DTOs, keeping the project structure clean and standardized.
+
+
+2. Separation of Concerns: The mapping logic stays inside the DTO, simplifying the service and controller layers.
+
+
+3. Simplified Maintenance: Changes to entities don't affect the API layer, as DTOs act as the intermediate layer.
+
+
+
+
+---
+
+✅ This covers the updated ProjectController and ProjectService with the DTO structure. Let me know if you need further modifications or additional features! 🚀
+
