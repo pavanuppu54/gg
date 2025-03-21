@@ -1,0 +1,310 @@
+✅ Updated Project with ResponseEntity and HTTP Status Codes
+
+
+---
+
+💡 Key Changes
+
+1. Added ResponseEntity to all endpoints.
+
+
+2. Proper HTTP status codes are returned:
+
+201 CREATED → For POST requests (resource creation).
+
+200 OK → For GET and PUT operations.
+
+204 NO CONTENT → For DELETE operations.
+
+
+
+3. Improved error handling and structured responses.
+
+
+
+
+---
+
+✅ 1️⃣ Updated ProjectController with HTTP Status Codes
+
+
+---
+
+📌 ProjectController.java
+
+package org.example.controller;
+
+import org.example.dto.ProjectDTO;
+import org.example.service.ProjectService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/projects")
+public class ProjectController {
+
+    @Autowired
+    private ProjectService projectService;
+
+    // Create project (201 Created)
+    @PostMapping
+    public ResponseEntity<ProjectDTO> createProject(@RequestBody ProjectDTO dto) {
+        ProjectDTO createdProject = projectService.createProject(dto);
+        return ResponseEntity.status(201).body(createdProject);  // 201 Created
+    }
+
+    // Get all projects (200 OK)
+    @GetMapping
+    public ResponseEntity<List<ProjectDTO>> getAllProjects() {
+        List<ProjectDTO> projects = projectService.getAllProjects();
+        return ResponseEntity.ok(projects);  // 200 OK
+    }
+
+    // Get project by ID (200 OK)
+    @GetMapping("/{id}")
+    public ResponseEntity<ProjectDTO> getProjectById(@PathVariable Integer id) {
+        ProjectDTO project = projectService.getProjectById(id);
+        return ResponseEntity.ok(project);  // 200 OK
+    }
+
+    // Update project (200 OK)
+    @PutMapping("/{id}")
+    public ResponseEntity<ProjectDTO> updateProject(
+            @PathVariable Integer id, @RequestBody ProjectDTO dto) {
+        ProjectDTO updatedProject = projectService.updateProject(id, dto);
+        return ResponseEntity.ok(updatedProject);  // 200 OK
+    }
+
+    // Delete project (204 No Content)
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteProject(@PathVariable Integer id) {
+        projectService.deleteProject(id);
+        return ResponseEntity.noContent().build();  // 204 No Content
+    }
+}
+
+
+---
+
+✅ 2️⃣ Updated EmployeeController with HTTP Status Codes
+
+
+---
+
+📌 EmployeeController.java
+
+package org.example.controller;
+
+import org.example.dto.EmployeeDTO;
+import org.example.service.EmployeeService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/employees")
+public class EmployeeController {
+
+    @Autowired
+    private EmployeeService employeeService;
+
+    // Create employee with projects (201 Created)
+    @PostMapping
+    public ResponseEntity<EmployeeDTO> createEmployee(@RequestBody EmployeeDTO dto) {
+        EmployeeDTO savedEmployee = employeeService.saveEmployeeWithProjects(dto);
+        return ResponseEntity.status(201).body(savedEmployee);  // 201 Created
+    }
+
+    // Get all employees (200 OK)
+    @GetMapping
+    public ResponseEntity<List<EmployeeDTO>> getAllEmployees() {
+        List<EmployeeDTO> employees = employeeService.getAllEmployees();
+        return ResponseEntity.ok(employees);  // 200 OK
+    }
+
+    // Get employee by ID (200 OK)
+    @GetMapping("/{id}")
+    public ResponseEntity<EmployeeDTO> getEmployeeById(@PathVariable Integer id) {
+        EmployeeDTO employee = employeeService.getEmployeeById(id);
+        return ResponseEntity.ok(employee);  // 200 OK
+    }
+
+    // Update employee (200 OK)
+    @PutMapping("/{id}")
+    public ResponseEntity<EmployeeDTO> updateEmployee(
+            @PathVariable Integer id, @RequestBody EmployeeDTO dto) {
+        EmployeeDTO updatedEmployee = employeeService.updateEmployee(id, dto);
+        return ResponseEntity.ok(updatedEmployee);  // 200 OK
+    }
+
+    // Delete employee (204 No Content)
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteEmployee(@PathVariable Integer id) {
+        employeeService.deleteEmployee(id);
+        return ResponseEntity.noContent().build();  // 204 No Content
+    }
+}
+
+
+---
+
+✅ 3️⃣ Updated Service Layer with Deletion and Update Methods
+
+
+---
+
+📌 ProjectService.java
+
+package org.example.service;
+
+import org.example.dto.ProjectDTO;
+import org.example.entity.Project;
+import org.example.repository.ProjectRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class ProjectService {
+
+    @Autowired
+    private ProjectRepository projectRepository;
+
+    // Create project
+    public ProjectDTO createProject(ProjectDTO dto) {
+        Project project = dto.toEntity();
+        Project savedProject = projectRepository.save(project);
+        return ProjectDTO.fromEntity(savedProject);
+    }
+
+    // Get all projects
+    public List<ProjectDTO> getAllProjects() {
+        List<Project> projects = projectRepository.findAll();
+        return projects.stream()
+                .map(ProjectDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    // Get project by ID
+    public ProjectDTO getProjectById(Integer id) {
+        Project project = projectRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Project not found with ID: " + id));
+        return ProjectDTO.fromEntity(project);
+    }
+
+    // Update project
+    public ProjectDTO updateProject(Integer id, ProjectDTO dto) {
+        Project project = projectRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Project not found with ID: " + id));
+
+        project.setProjectName(dto.getProjectName());
+
+        Project updatedProject = projectRepository.save(project);
+        return ProjectDTO.fromEntity(updatedProject);
+    }
+
+    // Delete project
+    public void deleteProject(Integer id) {
+        projectRepository.deleteById(id);
+    }
+}
+
+
+---
+
+✅ 4️⃣ JSON Inputs and Outputs with HTTP Status Codes
+
+
+---
+
+📥 Create Project → POST /projects
+
+{
+  "projectName": "AI Development"
+}
+
+📤 Output:
+
+{
+  "id": 1,
+  "projectName": "AI Development"
+}
+
+✅ Status: 201 CREATED
+
+
+---
+
+📥 Retrieve All Projects → GET /projects
+
+📤 Output:
+
+[
+    {
+        "id": 1,
+        "projectName": "AI Development"
+    },
+    {
+        "id": 2,
+        "projectName": "Cloud Migration"
+    }
+]
+
+✅ Status: 200 OK
+
+
+---
+
+📥 Retrieve Project by ID → GET /projects/1
+
+📤 Output:
+
+{
+  "id": 1,
+  "projectName": "AI Development"
+}
+
+✅ Status: 200 OK
+
+
+---
+
+📥 Update Project → PUT /projects/1
+
+{
+  "projectName": "Cloud Optimization"
+}
+
+📤 Output:
+
+{
+  "id": 1,
+  "projectName": "Cloud Optimization"
+}
+
+✅ Status: 200 OK
+
+
+---
+
+📥 Delete Project → DELETE /projects/1
+
+✅ Status: 204 NO CONTENT
+
+
+---
+
+✅ 5️⃣ Endpoints Overview with HTTP Status Codes
+
+
+---
+
+✅ With ResponseEntity and proper HTTP status codes, your project now follows RESTful standards and handles responses correctly. Let me know if you need further modifications or explanations! 🚀
+
