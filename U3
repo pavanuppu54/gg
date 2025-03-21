@@ -1,0 +1,363 @@
+✅ Updated Code with ResponseEntity Implementation
+
+
+---
+
+📌 Why Use ResponseEntity?
+
+ResponseEntity provides more control over the HTTP response by allowing you to specify:
+
+Status codes (e.g., 200 OK, 201 CREATED, 404 NOT FOUND)
+
+Headers
+
+Body content
+
+
+It enhances the API’s reliability and readability by providing detailed responses.
+
+
+
+---
+
+✅ 1️⃣ Updated EmployeeController.java with ResponseEntity
+
+Changes Made:
+
+All endpoints return ResponseEntity objects.
+
+Proper status codes (201, 200, 404) are used.
+
+
+
+
+---
+
+package org.example.controller;
+
+import org.example.dto.EmployeeDTO;
+import org.example.service.EmployeeService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/employees")
+public class EmployeeController {
+
+    @Autowired
+    private EmployeeService employeeService;
+
+    // Create Employee
+    @PostMapping
+    public ResponseEntity<EmployeeDTO> createEmployee(@RequestBody EmployeeDTO employeeDTO) {
+        EmployeeDTO savedEmployee = employeeService.saveEmployeeWithProjects(employeeDTO);
+        return ResponseEntity.status(201).body(savedEmployee);
+    }
+
+    // Get All Employees
+    @GetMapping
+    public ResponseEntity<List<EmployeeDTO>> getAllEmployees() {
+        List<EmployeeDTO> employees = employeeService.getAllEmployees();
+        if (employees.isEmpty()) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(employees);
+    }
+
+    // Get Employee by ID
+    @GetMapping("/{id}")
+    public ResponseEntity<EmployeeDTO> getEmployeeById(@PathVariable Integer id) {
+        Optional<EmployeeDTO> employee = employeeService.getEmployeeById(id);
+        return employee.map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // Delete Employee by ID
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteEmployee(@PathVariable Integer id) {
+        employeeService.deleteEmployee(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+
+
+---
+
+✅ 2️⃣ Updated EmployeeService.java
+
+Added a delete method.
+
+Optimized service layer to work with ResponseEntity.
+
+
+
+---
+
+package org.example.service;
+
+import org.example.dto.EmployeeDTO;
+import org.example.entity.Employee;
+import org.example.entity.Project;
+import org.example.repository.EmployeeRepository;
+import org.example.repository.ProjectRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+@Service
+public class EmployeeService {
+
+    @Autowired
+    private EmployeeRepository employeeRepository;
+
+    @Autowired
+    private ProjectRepository projectRepository;
+
+    // Save Employee with Projects
+    public EmployeeDTO saveEmployeeWithProjects(EmployeeDTO employeeDTO) {
+        var employee = employeeDTO.toEntity();
+
+        // Map Projects
+        Set<Project> projects = new HashSet<>();
+        if (employeeDTO.getProjects() != null) {
+            for (var projectDTO : employeeDTO.getProjects()) {
+                Project existingProject = projectRepository.findById(projectDTO.getId())
+                        .orElseThrow(() -> new RuntimeException("Project not found with ID: " + projectDTO.getId()));
+                projects.add(existingProject);
+            }
+        }
+        employee.setProjects(projects);
+
+        var savedEmployee = employeeRepository.save(employee);
+        return EmployeeDTO.fromEntity(savedEmployee);
+    }
+
+    // Get All Employees
+    public List<EmployeeDTO> getAllEmployees() {
+        return employeeRepository.findAll().stream()
+                .map(EmployeeDTO::fromEntity)
+                .toList();
+    }
+
+    // Get Employee by ID
+    public Optional<EmployeeDTO> getEmployeeById(Integer id) {
+        return employeeRepository.findById(id)
+                .map(EmployeeDTO::fromEntity);
+    }
+
+    // Delete Employee by ID
+    public void deleteEmployee(Integer id) {
+        employeeRepository.deleteById(id);
+    }
+}
+
+
+---
+
+✅ 3️⃣ Updated ProjectController.java with ResponseEntity
+
+Changes Made:
+
+All endpoints now return ResponseEntity.
+
+Added a delete method with 204 No Content.
+
+
+
+
+---
+
+package org.example.controller;
+
+import org.example.dto.ProjectDTO;
+import org.example.service.ProjectService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/projects")
+public class ProjectController {
+
+    @Autowired
+    private ProjectService projectService;
+
+    // Create Project
+    @PostMapping
+    public ResponseEntity<ProjectDTO> createProject(@RequestBody ProjectDTO projectDTO) {
+        ProjectDTO savedProject = projectService.saveProject(projectDTO);
+        return ResponseEntity.status(201).body(savedProject);
+    }
+
+    // Get All Projects
+    @GetMapping
+    public ResponseEntity<List<ProjectDTO>> getAllProjects() {
+        List<ProjectDTO> projects = projectService.getAllProjects();
+        if (projects.isEmpty()) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(projects);
+    }
+
+    // Get Project by ID
+    @GetMapping("/{id}")
+    public ResponseEntity<ProjectDTO> getProjectById(@PathVariable Integer id) {
+        Optional<ProjectDTO> project = projectService.getProjectById(id);
+        return project.map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // Delete Project by ID
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteProject(@PathVariable Integer id) {
+        projectService.deleteProject(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+
+
+---
+
+✅ 4️⃣ Updated ProjectService.java
+
+Added deleteProject() method.
+
+Streamlined project handling with ResponseEntity.
+
+
+
+---
+
+package org.example.service;
+
+import org.example.dto.ProjectDTO;
+import org.example.entity.Project;
+import org.example.repository.ProjectRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+public class ProjectService {
+
+    @Autowired
+    private ProjectRepository projectRepository;
+
+    // Save Project
+    public ProjectDTO saveProject(ProjectDTO projectDTO) {
+        Project project = projectDTO.toEntity();
+        Project savedProject = projectRepository.save(project);
+        return ProjectDTO.fromEntity(savedProject);
+    }
+
+    // Get All Projects
+    public List<ProjectDTO> getAllProjects() {
+        List<Project> projects = projectRepository.findAll();
+        return projects.stream()
+                .map(ProjectDTO::fromEntity)
+                .toList();
+    }
+
+    // Get Project by ID
+    public Optional<ProjectDTO> getProjectById(Integer id) {
+        return projectRepository.findById(id)
+                .map(ProjectDTO::fromEntity);
+    }
+
+    // Delete Project by ID
+    public void deleteProject(Integer id) {
+        projectRepository.deleteById(id);
+    }
+}
+
+
+---
+
+✅ 5️⃣ JSON Input and Output with ResponseEntity
+
+
+---
+
+📥 Create Employee
+
+Endpoint: POST /employees
+
+Input:
+
+{
+  "name": "John Doe",
+  "email": "john.doe@example.com",
+  "skills": ["Java", "Spring Boot"],
+  "employmentHistories": [
+    {
+      "companyName": "TechCorp",
+      "jobTitle": "Software Engineer",
+      "experience": 3
+    }
+  ],
+  "address": {
+    "city": "Hyderabad",
+    "state": "Telangana",
+    "pinCode": 500032
+  },
+  "projects": [
+    { "id": 1 },
+    { "id": 2 }
+  ]
+}
+
+Output (201 Created):
+
+{
+  "id": 1,
+  "name": "John Doe",
+  "email": "john.doe@example.com",
+  "skills": ["Java", "Spring Boot"],
+  "projects": [
+    { "id": 1, "projectName": "HR Management" },
+    { "id": 2, "projectName": "Inventory System" }
+  ]
+}
+
+
+---
+
+✅ Key Benefits of Using ResponseEntity
+
+1. Improved HTTP Status Codes:
+
+201 for creation
+
+200 for successful retrieval
+
+404 for not found
+
+204 for deletion
+
+
+
+2. Flexible Responses:
+
+You can include headers and more details in the response.
+
+
+
+
+
+---
+
+✅ This covers the full project with ResponseEntity implementation, including employees, projects, and DTO mappings. Let me know if you need any modifications or additional features! 🚀
+
