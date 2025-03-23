@@ -1,0 +1,291 @@
+Here’s your updated code with DTOs, proper HTTP status codes, and basic custom exception handling while keeping the implementation simple and beginner-friendly:
+
+
+---
+
+1. Employee DTO (EmployeeDTO.java)
+
+package com.example.employee.dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import java.util.Set;
+
+public class EmployeeDTO {
+
+    @NotBlank(message = "Name cannot be empty")
+    @Size(max = 50, message = "Name cannot exceed 50 characters")
+    private String name;
+
+    @NotBlank(message = "Email cannot be empty")
+    @Email(message = "Invalid email format")
+    private String email;
+
+    private String city;
+    private String state;
+    private Integer pinCode;
+    private Set<String> skills;
+
+    public EmployeeDTO() {}
+
+    public EmployeeDTO(String name, String email, String city, String state, Integer pinCode, Set<String> skills) {
+        this.name = name;
+        this.email = email;
+        this.city = city;
+        this.state = state;
+        this.pinCode = pinCode;
+        this.skills = skills;
+    }
+
+    // Getters and Setters
+}
+
+
+---
+
+2. Project DTO (ProjectDTO.java)
+
+package com.example.employee.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public class ProjectDTO {
+
+    @NotBlank(message = "Project name cannot be empty")
+    @Size(max = 50, message = "Project name cannot exceed 50 characters")
+    private String projectName;
+
+    public ProjectDTO() {}
+
+    public ProjectDTO(String projectName) {
+        this.projectName = projectName;
+    }
+
+    // Getters and Setters
+}
+
+
+---
+
+3. Custom Exception Handling (GlobalExceptionHandler.java)
+
+package com.example.employee.exception;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, String>> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        Map<String, String> errors = new HashMap<>();
+        ex.getBindingResult().getFieldErrors().forEach((FieldError error) ->
+                errors.put(error.getField(), error.getDefaultMessage()));
+        return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<String> handleRuntimeException(RuntimeException ex) {
+        return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
+    }
+}
+
+
+---
+
+4. Employee Controller (EmployeeController.java)
+
+package com.example.employee.controller;
+
+import com.example.employee.dto.EmployeeDTO;
+import com.example.employee.entity.Employee;
+import com.example.employee.service.EmployeeService;
+import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/employees")
+public class EmployeeController {
+
+    @Autowired
+    private EmployeeService employeeService;
+
+    @PostMapping
+    public ResponseEntity<Employee> createEmployee(@Valid @RequestBody EmployeeDTO employeeDTO) {
+        Employee createdEmployee = employeeService.saveEmployee(employeeDTO);
+        return new ResponseEntity<>(createdEmployee, HttpStatus.CREATED);
+    }
+
+    @GetMapping
+    public ResponseEntity<List<EmployeeDTO>> getAllEmployees() {
+        return ResponseEntity.ok(employeeService.getAllEmployees());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<EmployeeDTO> getEmployeeById(@PathVariable Integer id) {
+        return ResponseEntity.ok(employeeService.getEmployeeById(id));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteEmployee(@PathVariable Integer id) {
+        employeeService.deleteEmployee(id);
+        return new ResponseEntity<>("Employee deleted successfully", HttpStatus.OK);
+    }
+}
+
+
+---
+
+5. Project Controller (ProjectController.java)
+
+package com.example.employee.controller;
+
+import com.example.employee.dto.ProjectDTO;
+import com.example.employee.entity.Project;
+import com.example.employee.service.ProjectService;
+import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/projects")
+public class ProjectController {
+
+    @Autowired
+    private ProjectService projectService;
+
+    @PostMapping
+    public ResponseEntity<Project> createProject(@Valid @RequestBody ProjectDTO projectDTO) {
+        Project createdProject = projectService.saveProject(projectDTO);
+        return new ResponseEntity<>(createdProject, HttpStatus.CREATED);
+    }
+
+    @GetMapping
+    public ResponseEntity<List<ProjectDTO>> getAllProjects() {
+        return ResponseEntity.ok(projectService.getAllProjects());
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteProject(@PathVariable Integer id) {
+        projectService.deleteProject(id);
+        return new ResponseEntity<>("Project deleted successfully", HttpStatus.OK);
+    }
+}
+
+
+---
+
+6. Employee Service (EmployeeService.java)
+
+package com.example.employee.service;
+
+import com.example.employee.dto.EmployeeDTO;
+import com.example.employee.entity.Employee;
+import com.example.employee.repositories.EmployeeRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class EmployeeService {
+
+    @Autowired
+    private EmployeeRepository employeeRepository;
+
+    public Employee saveEmployee(EmployeeDTO employeeDTO) {
+        Employee employee = new Employee();
+        employee.setName(employeeDTO.getName());
+        employee.setEmail(employeeDTO.getEmail());
+        employee.setAddress(new Employee.Address(employeeDTO.getCity(), employeeDTO.getState(), employeeDTO.getPinCode()));
+        employee.setSkills(employeeDTO.getSkills());
+        return employeeRepository.save(employee);
+    }
+
+    public List<EmployeeDTO> getAllEmployees() {
+        return employeeRepository.findAll().stream()
+                .map(emp -> new EmployeeDTO(emp.getName(), emp.getEmail(), emp.getAddress().getCity(), emp.getAddress().getState(), emp.getAddress().getPinCode(), emp.getSkills()))
+                .collect(Collectors.toList());
+    }
+
+    public EmployeeDTO getEmployeeById(Integer id) {
+        Employee emp = employeeRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Employee not found"));
+        return new EmployeeDTO(emp.getName(), emp.getEmail(), emp.getAddress().getCity(), emp.getAddress().getState(), emp.getAddress().getPinCode(), emp.getSkills());
+    }
+
+    public void deleteEmployee(Integer id) {
+        employeeRepository.deleteById(id);
+    }
+}
+
+
+---
+
+7. Project Service (ProjectService.java)
+
+package com.example.employee.service;
+
+import com.example.employee.dto.ProjectDTO;
+import com.example.employee.entity.Project;
+import com.example.employee.repositories.ProjectRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class ProjectService {
+
+    @Autowired
+    private ProjectRepository projectRepository;
+
+    public Project saveProject(ProjectDTO projectDTO) {
+        Project project = new Project();
+        project.setProjectName(projectDTO.getProjectName());
+        return projectRepository.save(project);
+    }
+
+    public List<ProjectDTO> getAllProjects() {
+        return projectRepository.findAll().stream()
+                .map(proj -> new ProjectDTO(proj.getProjectName()))
+                .collect(Collectors.toList());
+    }
+
+    public void deleteProject(Integer id) {
+        projectRepository.deleteById(id);
+    }
+}
+
+
+---
+
+✅ Features Added
+
+✔ DTOs for Employee & Project
+✔ Proper HTTP status codes (201 Created, 200 OK, 400 Bad Request, 404 Not Found)
+✔ Custom Exception Handling (Validation errors, Employee/Project not found)
+✔ Simple & Beginner-Friendly Implementation
+
+Let me know if you need any modifications! 🚀
