@@ -1,0 +1,302 @@
+Here’s a simple and complete version of your Spring Boot application with proper exception handling.
+
+
+---
+
+1. EmployeeController
+
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/employees")
+@RequiredArgsConstructor
+public class EmployeeController {
+
+    private final EmployeeService employeeService;
+
+    @PostMapping
+    public ResponseEntity<EmployeeDTO> createEmployee(@Valid @RequestBody EmployeeDTO dto) {
+        EmployeeDTO savedEmployee = employeeService.saveEmployeeWithProjects(dto);
+        return ResponseEntity.status(201).body(savedEmployee);
+    }
+
+    @GetMapping
+    public ResponseEntity<List<EmployeeDTO>> getAllEmployees() {
+        return ResponseEntity.ok(employeeService.getAllEmployees());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<EmployeeDTO> getEmployeeById(@PathVariable Integer id) {
+        return ResponseEntity.ok(employeeService.getEmployeeById(id));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<EmployeeDTO> updateEmployee(@PathVariable Integer id, @Valid @RequestBody EmployeeDTO dto) {
+        return ResponseEntity.ok(employeeService.updateEmployee(id, dto));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteEmployee(@PathVariable Integer id) {
+        employeeService.deleteEmployee(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+
+
+---
+
+2. EmployeeService
+
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class EmployeeService {
+
+    private final EmployeeRepository employeeRepository;
+    private final ProjectRepository projectRepository;
+
+    @Transactional
+    public EmployeeDTO saveEmployeeWithProjects(EmployeeDTO dto) {
+        List<Project> projects = projectRepository.findAllById(dto.getProjectIds());
+        if (projects.isEmpty()) {
+            throw new ResourceNotFoundException("Projects not found with given IDs");
+        }
+        Employee employee = dto.toEntity(projects);
+        return EmployeeDTO.fromEntity(employeeRepository.save(employee));
+    }
+
+    public List<EmployeeDTO> getAllEmployees() {
+        return employeeRepository.findAll()
+                .stream()
+                .map(EmployeeDTO::fromEntity)
+                .toList();
+    }
+
+    public EmployeeDTO getEmployeeById(Integer id) {
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Employee not found with ID: " + id));
+        return EmployeeDTO.fromEntity(employee);
+    }
+
+    public EmployeeDTO updateEmployee(Integer id, EmployeeDTO dto) {
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Employee not found with ID: " + id));
+
+        employee.setName(dto.getName());
+        employee.setDepartment(dto.getDepartment());
+        return EmployeeDTO.fromEntity(employeeRepository.save(employee));
+    }
+
+    public void deleteEmployee(Integer id) {
+        employeeRepository.deleteById(id);
+    }
+}
+
+
+---
+
+3. EmployeeDTO
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import lombok.Data;
+
+import java.util.List;
+
+@Data
+public class EmployeeDTO {
+
+    @NotBlank(message = "Name cannot be blank")
+    private String name;
+
+    @NotBlank(message = "Department cannot be blank")
+    private String department;
+
+    @NotEmpty(message = "At least one project ID is required")
+    private List<Long> projectIds;
+
+    public Employee toEntity(List<Project> projects) {
+        Employee employee = new Employee();
+        employee.setName(this.name);
+        employee.setDepartment(this.department);
+        employee.setProjects(projects);
+        return employee;
+    }
+
+    public static EmployeeDTO fromEntity(Employee employee) {
+        EmployeeDTO dto = new EmployeeDTO();
+        dto.setName(employee.getName());
+        dto.setDepartment(employee.getDepartment());
+        dto.setProjectIds(employee.getProjects().stream().map(Project::getId).toList());
+        return dto;
+    }
+}
+
+
+---
+
+4. ProjectController
+
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/projects")
+@RequiredArgsConstructor
+public class ProjectController {
+
+    private final ProjectService projectService;
+
+    @PostMapping
+    public ResponseEntity<ProjectDTO> createProject(@Valid @RequestBody ProjectDTO dto) {
+        return ResponseEntity.status(201).body(projectService.createProject(dto));
+    }
+
+    @GetMapping
+    public ResponseEntity<List<ProjectDTO>> getAllProjects() {
+        return ResponseEntity.ok(projectService.getAllProjects());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ProjectDTO> getProjectById(@PathVariable Integer id) {
+        return ResponseEntity.ok(projectService.getProjectById(id));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ProjectDTO> updateProject(@PathVariable Integer id, @Valid @RequestBody ProjectDTO dto) {
+        return ResponseEntity.ok(projectService.updateProject(id, dto));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteProject(@PathVariable Integer id) {
+        projectService.deleteProject(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+
+
+---
+
+5. ProjectService
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class ProjectService {
+
+    private final ProjectRepository projectRepository;
+
+    public ProjectDTO createProject(ProjectDTO dto) {
+        Project project = dto.toEntity();
+        return ProjectDTO.fromEntity(projectRepository.save(project));
+    }
+
+    public List<ProjectDTO> getAllProjects() {
+        return projectRepository.findAll()
+                .stream()
+                .map(ProjectDTO::fromEntity)
+                .toList();
+    }
+
+    public ProjectDTO getProjectById(Integer id) {
+        Project project = projectRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found with ID: " + id));
+        return ProjectDTO.fromEntity(project);
+    }
+
+    public ProjectDTO updateProject(Integer id, ProjectDTO dto) {
+        Project project = projectRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found with ID: " + id));
+
+        project.setProjectName(dto.getProjectName());
+        return ProjectDTO.fromEntity(projectRepository.save(project));
+    }
+
+    public void deleteProject(Integer id) {
+        projectRepository.deleteById(id);
+    }
+}
+
+
+---
+
+6. Global Exception Handling
+
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Map<String, String> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        Map<String, String> errors = new HashMap<>();
+        ex.getBindingResult().getFieldErrors().forEach(error ->
+            errors.put(error.getField(), error.getDefaultMessage())
+        );
+        return errors;
+    }
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Map<String, String> handleResourceNotFoundException(ResourceNotFoundException ex) {
+        return Map.of("error", ex.getMessage());
+    }
+}
+
+
+---
+
+7. Custom Exception Class
+
+public class ResourceNotFoundException extends RuntimeException {
+    public ResourceNotFoundException(String message) {
+        super(message);
+    }
+}
+
+
+---
+
+Key Features
+
+1. Simple and Clear Code: Uses @Valid, @RestControllerAdvice, and @RequiredArgsConstructor to reduce boilerplate code.
+
+
+2. Validation Errors in Postman: If invalid data is sent, Postman will show validation errors.
+
+
+3. Global Exception Handling: Catches ResourceNotFoundException and validation errors automatically.
+
+
+4. CRUD Operations for Employee and Project: Properly structured service and repository methods.
+
+
+
+This code is beginner-friendly and ready to use in a Spring Boot project. Let me know if you need further clarifications!
+
