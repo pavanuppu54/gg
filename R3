@@ -1,0 +1,188 @@
+You're right! I missed adding DTOs for Address and EmploymentHistory. Here are the missing DTOs:
+
+
+---
+
+1. Address DTO (AddressDTO.java)
+
+package com.example.employee.dto;
+
+public class AddressDTO {
+    private String city;
+    private String state;
+    private Integer pinCode;
+
+    public AddressDTO() {}
+
+    public AddressDTO(String city, String state, Integer pinCode) {
+        this.city = city;
+        this.state = state;
+        this.pinCode = pinCode;
+    }
+
+    // Getters and Setters
+}
+
+
+---
+
+2. Employment History DTO (EmploymentHistoryDTO.java)
+
+package com.example.employee.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
+public class EmploymentHistoryDTO {
+
+    @NotBlank(message = "Company name cannot be empty")
+    private String companyName;
+
+    @NotBlank(message = "Job title cannot be empty")
+    private String jobTitle;
+
+    @NotNull(message = "Experience cannot be null")
+    private Integer experience;
+
+    public EmploymentHistoryDTO() {}
+
+    public EmploymentHistoryDTO(String companyName, String jobTitle, Integer experience) {
+        this.companyName = companyName;
+        this.jobTitle = jobTitle;
+        this.experience = experience;
+    }
+
+    // Getters and Setters
+}
+
+
+---
+
+3. Update EmployeeDTO.java to include Address & Employment History
+
+package com.example.employee.dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import java.util.List;
+import java.util.Set;
+
+public class EmployeeDTO {
+
+    @NotBlank(message = "Name cannot be empty")
+    @Size(max = 50, message = "Name cannot exceed 50 characters")
+    private String name;
+
+    @NotBlank(message = "Email cannot be empty")
+    @Email(message = "Invalid email format")
+    private String email;
+
+    private AddressDTO address;
+    private Set<String> skills;
+    private List<EmploymentHistoryDTO> employmentHistories;
+
+    public EmployeeDTO() {}
+
+    public EmployeeDTO(String name, String email, AddressDTO address, Set<String> skills, List<EmploymentHistoryDTO> employmentHistories) {
+        this.name = name;
+        this.email = email;
+        this.address = address;
+        this.skills = skills;
+        this.employmentHistories = employmentHistories;
+    }
+
+    // Getters and Setters
+}
+
+
+---
+
+4. Update EmployeeService.java to Handle Address & Employment History
+
+package com.example.employee.service;
+
+import com.example.employee.dto.AddressDTO;
+import com.example.employee.dto.EmployeeDTO;
+import com.example.employee.dto.EmploymentHistoryDTO;
+import com.example.employee.entity.Employee;
+import com.example.employee.entity.EmploymentHistory;
+import com.example.employee.repositories.EmployeeRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+@Service
+public class EmployeeService {
+
+    @Autowired
+    private EmployeeRepository employeeRepository;
+
+    public Employee saveEmployee(EmployeeDTO employeeDTO) {
+        Employee employee = new Employee();
+        employee.setName(employeeDTO.getName());
+        employee.setEmail(employeeDTO.getEmail());
+
+        // Convert AddressDTO to Embedded Address
+        AddressDTO addressDTO = employeeDTO.getAddress();
+        if (addressDTO != null) {
+            employee.setAddress(new Employee.Address(addressDTO.getCity(), addressDTO.getState(), addressDTO.getPinCode()));
+        }
+
+        // Set skills
+        employee.setSkills(employeeDTO.getSkills());
+
+        // Convert EmploymentHistoryDTO to Entity
+        List<EmploymentHistory> employmentHistories = employeeDTO.getEmploymentHistories().stream()
+                .map(dto -> new EmploymentHistory(dto.getCompanyName(), dto.getJobTitle(), dto.getExperience(), employee))
+                .collect(Collectors.toList());
+
+        employee.setEmploymentHistories(employmentHistories);
+
+        return employeeRepository.save(employee);
+    }
+
+    public List<EmployeeDTO> getAllEmployees() {
+        return employeeRepository.findAll().stream().map(emp ->
+                new EmployeeDTO(
+                        emp.getName(),
+                        emp.getEmail(),
+                        emp.getAddress() != null ? new AddressDTO(emp.getAddress().getCity(), emp.getAddress().getState(), emp.getAddress().getPinCode()) : null,
+                        emp.getSkills(),
+                        emp.getEmploymentHistories().stream()
+                                .map(history -> new EmploymentHistoryDTO(history.getCompanyName(), history.getJobTitle(), history.getExperience()))
+                                .collect(Collectors.toList())
+                )
+        ).collect(Collectors.toList());
+    }
+
+    public EmployeeDTO getEmployeeById(Integer id) {
+        Employee emp = employeeRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Employee not found"));
+        return new EmployeeDTO(
+                emp.getName(),
+                emp.getEmail(),
+                emp.getAddress() != null ? new AddressDTO(emp.getAddress().getCity(), emp.getAddress().getState(), emp.getAddress().getPinCode()) : null,
+                emp.getSkills(),
+                emp.getEmploymentHistories().stream()
+                        .map(history -> new EmploymentHistoryDTO(history.getCompanyName(), history.getJobTitle(), history.getExperience()))
+                        .collect(Collectors.toList())
+        );
+    }
+}
+
+
+---
+
+✅ Updates & Features Added
+
+✔ Added AddressDTO for Address handling
+✔ Added EmploymentHistoryDTO for Employee work history
+✔ Updated EmployeeDTO to include Address and Employment History
+✔ Updated EmployeeService to handle Address & Employment History conversion
+
+Now, your Employee APIs will return structured data with Address & Employment History details inside the response! 🚀 Let me know if you need any modifications.
+
