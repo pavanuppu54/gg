@@ -1,0 +1,185 @@
+Adding Logging to Spring Boot APIs Using Logback with Rolling File Appender
+
+Since you're a beginner, I'll explain what logging is, why it's important, and how to implement it step by step.
+
+
+---
+
+1. What is Logging?
+
+Logging helps developers track application behavior by writing logs (messages) to a console or file. It is useful for:
+
+Debugging issues (e.g., finding errors)
+
+Monitoring application performance
+
+Understanding user activity
+
+
+Why Logback?
+
+Spring Boot uses Logback as the default logging framework because: ✔ It's fast and efficient
+✔ Supports rolling file appender (logs rotate after a limit)
+✔ Requires minimal configuration
+
+
+---
+
+2. Adding Logback with Rolling File Appender
+
+Step 1: Add Logback Configuration (logback-spring.xml)
+
+Create a file in src/main/resources/logback-spring.xml and add:
+
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- Define log file location -->
+    <property name="LOG_PATH" value="./logs" />
+
+    <!-- Console Appender: Logs output to the console -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%level] %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Rolling File Appender: Logs to a file and rotates when size exceeds limit -->
+    <appender name="ROLLING_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/application.log</file>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%level] %logger{36} - %msg%n</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- Create a new log file daily -->
+            <fileNamePattern>${LOG_PATH}/application-%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>7</maxHistory> <!-- Keep logs for 7 days -->
+        </rollingPolicy>
+    </appender>
+
+    <!-- Root Logger Configuration -->
+    <root level="info">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="ROLLING_FILE"/>
+    </root>
+
+</configuration>
+
+
+---
+
+Step 2: Add Logging in Your Spring Boot Project
+
+Modify your EmployeeController to use logging:
+
+package com.example.employee.controller;
+
+import com.example.employee.dto.EmployeeDTO;
+import com.example.employee.service.EmployeeService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/employees")
+public class EmployeeController {
+
+    private static final Logger logger = LoggerFactory.getLogger(EmployeeController.class);
+
+    private final EmployeeService employeeService;
+
+    public EmployeeController(EmployeeService employeeService) {
+        this.employeeService = employeeService;
+    }
+
+    @GetMapping
+    public List<EmployeeDTO> getAllEmployees() {
+        logger.info("Fetching all employees");
+        return employeeService.getAllEmployees();
+    }
+
+    @GetMapping("/{id}")
+    public EmployeeDTO getEmployeeById(@PathVariable Long id) {
+        logger.info("Fetching employee with ID: {}", id);
+        return employeeService.getEmployeeById(id);
+    }
+
+    @PostMapping
+    public EmployeeDTO createEmployee(@RequestBody EmployeeDTO employeeDTO) {
+        logger.info("Creating new employee: {}", employeeDTO.getName());
+        return employeeService.createEmployee(employeeDTO);
+    }
+
+    @PutMapping("/{id}")
+    public EmployeeDTO updateEmployee(@PathVariable Long id, @RequestBody EmployeeDTO employeeDTO) {
+        logger.info("Updating employee with ID: {}", id);
+        return employeeService.updateEmployee(id, employeeDTO);
+    }
+
+    @DeleteMapping("/{id}")
+    public void deleteEmployee(@PathVariable Long id) {
+        logger.warn("Deleting employee with ID: {}", id);
+        employeeService.deleteEmployee(id);
+    }
+}
+
+
+---
+
+Step 3: Explanation of Implementation
+
+
+---
+
+Step 4: Run and Test
+
+1. Run your Spring Boot application (mvn spring-boot:run).
+
+
+2. Make API requests:
+
+GET /api/employees
+
+POST /api/employees
+
+DELETE /api/employees/{id}
+
+
+
+3. Check logs:
+
+Console Output
+
+File Output (logs/application.log)
+
+
+
+
+
+---
+
+Step 5: Verify Log Rotation
+
+1. Run the application for multiple days or manually delete the log file.
+
+
+2. Check logs/ directory for daily rotated logs (application-YYYY-MM-DD.log).
+
+
+
+
+---
+
+Final Notes
+
+Logs help debugging and monitoring.
+
+Rolling file logs prevent large log files from consuming disk space.
+
+You can change log levels (info, warn, error) based on needs.
+
+
+Now, logging is fully integrated into your Spring Boot CRUD application! 🚀 Let me know if you need further explanation. 😊
+
