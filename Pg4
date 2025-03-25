@@ -1,0 +1,291 @@
+Here’s the updated code with a centralized exception handling mechanism to meet your requirements.
+
+
+---
+
+1. Custom Exception Classes
+
+These exceptions will be used to handle different error cases.
+
+Duplicate Email Exception
+
+package org.example.exception;
+
+public class DuplicateEmailException extends RuntimeException {
+    public DuplicateEmailException(String message) {
+        super(message);
+    }
+}
+
+Duplicate Project Name Exception
+
+package org.example.exception;
+
+public class DuplicateProjectNameException extends RuntimeException {
+    public DuplicateProjectNameException(String message) {
+        super(message);
+    }
+}
+
+ID Not Found Exception
+
+package org.example.exception;
+
+public class IdNotFoundException extends RuntimeException {
+    public IdNotFoundException(String message) {
+        super(message);
+    }
+}
+
+ID Update Not Allowed Exception
+
+package org.example.exception;
+
+public class IdUpdateNotAllowedException extends RuntimeException {
+    public IdUpdateNotAllowedException(String message) {
+        super(message);
+    }
+}
+
+
+---
+
+2. Global Exception Handler
+
+This will ensure that all exceptions are handled properly and displayed in Postman or API responses.
+
+package org.example.exception;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(DuplicateEmailException.class)
+    public ResponseEntity<String> handleDuplicateEmail(DuplicateEmailException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
+    }
+
+    @ExceptionHandler(DuplicateProjectNameException.class)
+    public ResponseEntity<String> handleDuplicateProjectName(DuplicateProjectNameException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
+    }
+
+    @ExceptionHandler(IdNotFoundException.class)
+    public ResponseEntity<String> handleIdNotFound(IdNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
+    }
+
+    @ExceptionHandler(IdUpdateNotAllowedException.class)
+    public ResponseEntity<String> handleIdUpdateNotAllowed(IdUpdateNotAllowedException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, String>> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        Map<String, String> errors = new HashMap<>();
+        ex.getBindingResult().getAllErrors().forEach(error -> {
+            String fieldName = ((FieldError) error).getField();
+            String errorMessage = error.getDefaultMessage();
+            errors.put(fieldName, errorMessage);
+        });
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<String> handleGenericException(Exception ex) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Something went wrong: " + ex.getMessage());
+    }
+}
+
+
+---
+
+3. Updated EmployeeService
+
+Now, the EmployeeService will check for duplicate emails and prevent ID updates.
+
+package org.example.service;
+
+import org.example.dto.EmployeeDTO;
+import org.example.entity.Employee;
+import org.example.entity.Project;
+import org.example.exception.DuplicateEmailException;
+import org.example.exception.IdNotFoundException;
+import org.example.exception.IdUpdateNotAllowedException;
+import org.example.repository.EmployeeRepository;
+import org.example.repository.ProjectRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Set;
+
+@Service
+public class EmployeeService {
+
+    @Autowired
+    private EmployeeRepository employeeRepository;
+
+    @Autowired
+    private ProjectRepository projectRepository;
+
+    @Transactional
+    public EmployeeDTO saveEmployeeWithProjects(EmployeeDTO dto) {
+        if (employeeRepository.findByEmail(dto.getEmail()).isPresent()) {
+            throw new DuplicateEmailException("Email already exists: " + dto.getEmail());
+        }
+
+        List<Project> projects = projectRepository.findAllById(dto.getProjectIds());
+        Employee employee = dto.toEntity(projects);
+        Employee savedEmployee = employeeRepository.save(employee);
+        return EmployeeDTO.fromEntity(savedEmployee);
+    }
+
+    public List<EmployeeDTO> getAllEmployees() {
+        List<Employee> employees = employeeRepository.findAll();
+        return employees.stream().map(EmployeeDTO::fromEntity).toList();
+    }
+
+    public EmployeeDTO getEmployeeById(Integer id) {
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new IdNotFoundException("Employee not found with ID: " + id));
+        return EmployeeDTO.fromEntity(employee);
+    }
+
+    public EmployeeDTO updateEmployee(Integer id, EmployeeDTO dto) {
+        Employee existingEmployee = employeeRepository.findById(id)
+                .orElseThrow(() -> new IdNotFoundException("Employee not found with ID: " + id));
+
+        if (!id.equals(dto.getId())) {
+            throw new IdUpdateNotAllowedException("ID update is not allowed.");
+        }
+
+        existingEmployee.setName(dto.getName());
+        existingEmployee.setEmail(dto.getEmail());
+        existingEmployee.setSkills(dto.getSkills());
+        existingEmployee.setAddress(dto.getAddress().toEntity());
+
+        Employee updatedEmployee = employeeRepository.save(existingEmployee);
+        return EmployeeDTO.fromEntity(updatedEmployee);
+    }
+
+    public void deleteEmployee(Integer id) {
+        if (!employeeRepository.existsById(id)) {
+            throw new IdNotFoundException("Employee ID not found: " + id);
+        }
+        employeeRepository.deleteById(id);
+    }
+}
+
+
+---
+
+4. Updated ProjectService
+
+Now, the ProjectService will check for duplicate project names and prevent ID updates.
+
+package org.example.service;
+
+import org.example.dto.ProjectDTO;
+import org.example.entity.Project;
+import org.example.exception.DuplicateProjectNameException;
+import org.example.exception.IdNotFoundException;
+import org.example.exception.IdUpdateNotAllowedException;
+import org.example.repository.ProjectRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+public class ProjectService {
+
+    @Autowired
+    private ProjectRepository projectRepository;
+
+    public ProjectDTO createProject(ProjectDTO dto) {
+        if (projectRepository.findByProjectName(dto.getProjectName()).isPresent()) {
+            throw new DuplicateProjectNameException("Project name already exists: " + dto.getProjectName());
+        }
+
+        Project project = dto.toEntity();
+        Project savedProject = projectRepository.save(project);
+        return ProjectDTO.fromEntity(savedProject);
+    }
+
+    public List<ProjectDTO> getAllProjects() {
+        List<Project> projects = projectRepository.findAll();
+        return projects.stream().map(ProjectDTO::fromEntity).toList();
+    }
+
+    public ProjectDTO getProjectById(Integer id) {
+        Project project = projectRepository.findById(id)
+                .orElseThrow(() -> new IdNotFoundException("Project not found with ID: " + id));
+        return ProjectDTO.fromEntity(project);
+    }
+
+    public ProjectDTO updateProject(Integer id, ProjectDTO dto) {
+        Project existingProject = projectRepository.findById(id)
+                .orElseThrow(() -> new IdNotFoundException("Project not found with ID: " + id));
+
+        if (!id.equals(dto.getId())) {
+            throw new IdUpdateNotAllowedException("ID update is not allowed.");
+        }
+
+        existingProject.setProjectName(dto.getProjectName());
+        Project updatedProject = projectRepository.save(existingProject);
+        return ProjectDTO.fromEntity(updatedProject);
+    }
+
+    public void deleteProject(Integer id) {
+        if (!projectRepository.existsById(id)) {
+            throw new IdNotFoundException("Project ID not found: " + id);
+        }
+        projectRepository.deleteById(id);
+    }
+}
+
+
+---
+
+5. Validations in DTOs
+
+Ensure validation messages are properly displayed when invalid data is entered.
+
+Example:
+
+@jakarta.validation.constraints.NotNull(message = "Name cannot be null")
+@jakarta.validation.constraints.Size(min = 2, max = 50, message = "Name must be between 2 and 50 characters")
+private String name;
+
+
+---
+
+Final Output Behavior in Postman
+
+Duplicate Email: "Email already exists: manasa2005@gmail.com"
+
+Duplicate Project Name: "Project name already exists: ispl"
+
+ID Not Found for Deletion: "Employee ID not found: 10"
+
+ID Update Not Allowed: "ID update is not allowed"
+
+Validation Errors: { "name": "Name cannot be null", "email": "Invalid email format" }
+
+
+
+---
+
+This implementation ensures all exceptions and validation messages are properly displayed in Postman. Let me know if you need more changes!
+
