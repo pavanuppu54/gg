@@ -1,0 +1,264 @@
+Got it! I'll simplify the code without using the builder pattern, making it easier for beginners to understand.
+
+
+---
+
+1. Employee Entity
+
+package org.example.entity;
+
+import jakarta.persistence.*;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+@Entity
+@Table(name = "employee")
+public class Employee {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+
+    @Column(name = "name", nullable = false)
+    private String name;
+
+    @Column(name = "email", nullable = false, unique = true)
+    private String email;
+
+    @ElementCollection
+    @CollectionTable(name = "employee_skills", joinColumns = @JoinColumn(name = "employee_id"))
+    @Column(name = "skill")
+    private Set<String> skills = new HashSet<>();
+
+    @OneToMany(mappedBy = "employee", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<EmploymentHistory> employmentHistories;
+
+    @Embedded
+    private Address address;
+
+    @ManyToMany
+    @JoinTable(
+        name = "employee_project",
+        joinColumns = @JoinColumn(name = "employee_id"),
+        inverseJoinColumns = @JoinColumn(name = "project_id")
+    )
+    private Set<Project> projects = new HashSet<>();
+
+    public Employee() {}
+
+    public Integer getId() { return id; }
+    public void setId(Integer id) { this.id = id; }
+
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+
+    public Set<String> getSkills() { return skills; }
+    public void setSkills(Set<String> skills) { this.skills = skills; }
+
+    public Address getAddress() { return address; }
+    public void setAddress(Address address) { this.address = address; }
+
+    public List<EmploymentHistory> getEmploymentHistories() { return employmentHistories; }
+    public void setEmploymentHistories(List<EmploymentHistory> employmentHistories) {
+        this.employmentHistories = employmentHistories;
+    }
+
+    public Set<Project> getProjects() { return projects; }
+    public void setProjects(Set<Project> projects) { this.projects = projects; }
+}
+
+
+---
+
+2. EmployeeDTO
+
+package org.example.dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.example.entity.Employee;
+import org.example.entity.Project;
+
+public class EmployeeDTO {
+
+    private Integer id;
+
+    @NotNull(message = "Name cannot be null")
+    @Size(min = 2, max = 50, message = "Name must be between 2 and 50 characters")
+    private String name;
+
+    @NotNull(message = "Email cannot be null")
+    @Email(message = "Invalid email format")
+    private String email;
+
+    private Set<String> skills;
+    private AddressDTO address;
+    private List<EmploymentHistoryDTO> employmentHistories;
+    private List<Integer> projectIds;
+
+    public EmployeeDTO() {}
+
+    public Integer getId() { return id; }
+    public void setId(Integer id) { this.id = id; }
+
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+
+    public Set<String> getSkills() { return skills; }
+    public void setSkills(Set<String> skills) { this.skills = skills; }
+
+    public AddressDTO getAddress() { return address; }
+    public void setAddress(AddressDTO address) { this.address = address; }
+
+    public List<EmploymentHistoryDTO> getEmploymentHistories() { return employmentHistories; }
+    public void setEmploymentHistories(List<EmploymentHistoryDTO> employmentHistories) {
+        this.employmentHistories = employmentHistories;
+    }
+
+    public List<Integer> getProjectIds() { return projectIds; }
+    public void setProjectIds(List<Integer> projectIds) { this.projectIds = projectIds; }
+
+    // Convert DTO to Entity
+    public Employee toEntity(List<Project> projects) {
+        Employee employee = new Employee();
+        employee.setId(this.id);
+        employee.setName(this.name);
+        employee.setEmail(this.email);
+        employee.setSkills(this.skills);
+        employee.setAddress(this.address != null ? this.address.toEntity() : null);
+
+        if (this.employmentHistories != null) {
+            employee.setEmploymentHistories(
+                this.employmentHistories.stream().map(EmploymentHistoryDTO::toEntity).collect(Collectors.toList())
+            );
+        }
+
+        employee.setProjects(new HashSet<>(projects));
+        return employee;
+    }
+
+    // Convert Entity to DTO
+    public static EmployeeDTO fromEntity(Employee employee) {
+        EmployeeDTO dto = new EmployeeDTO();
+        dto.setId(employee.getId());
+        dto.setName(employee.getName());
+        dto.setEmail(employee.getEmail());
+        dto.setSkills(employee.getSkills());
+        dto.setAddress(employee.getAddress() != null ? AddressDTO.fromEntity(employee.getAddress()) : null);
+
+        if (employee.getEmploymentHistories() != null) {
+            dto.setEmploymentHistories(
+                employee.getEmploymentHistories().stream().map(EmploymentHistoryDTO::fromEntity).collect(Collectors.toList())
+            );
+        }
+
+        if (employee.getProjects() != null) {
+            dto.setProjectIds(
+                employee.getProjects().stream().map(Project::getId).collect(Collectors.toList())
+            );
+        }
+
+        return dto;
+    }
+}
+
+
+---
+
+3. Address (Embedded)
+
+package org.example.entity;
+
+import jakarta.persistence.Embeddable;
+
+@Embeddable
+public class Address {
+    private String city;
+    private String state;
+    private Integer pinCode;
+
+    public Address() {}
+
+    public String getCity() { return city; }
+    public void setCity(String city) { this.city = city; }
+
+    public String getState() { return state; }
+    public void setState(String state) { this.state = state; }
+
+    public Integer getPinCode() { return pinCode; }
+    public void setPinCode(Integer pinCode) { this.pinCode = pinCode; }
+}
+
+
+---
+
+4. AddressDTO
+
+package org.example.dto;
+
+import org.example.entity.Address;
+
+public class AddressDTO {
+    private String city;
+    private String state;
+    private Integer pinCode;
+
+    public AddressDTO() {}
+
+    public String getCity() { return city; }
+    public void setCity(String city) { this.city = city; }
+
+    public String getState() { return state; }
+    public void setState(String state) { this.state = state; }
+
+    public Integer getPinCode() { return pinCode; }
+    public void setPinCode(Integer pinCode) { this.pinCode = pinCode; }
+
+    public Address toEntity() {
+        Address address = new Address();
+        address.setCity(this.city);
+        address.setState(this.state);
+        address.setPinCode(this.pinCode);
+        return address;
+    }
+
+    public static AddressDTO fromEntity(Address address) {
+        AddressDTO dto = new AddressDTO();
+        dto.setCity(address.getCity());
+        dto.setState(address.getState());
+        dto.setPinCode(address.getPinCode());
+        return dto;
+    }
+}
+
+
+---
+
+Key Improvements for Beginners
+
+1. No Builder Pattern – Only simple constructors and getter/setter methods.
+
+
+2. Clear DTO to Entity and Entity to DTO conversion methods – Easy to follow.
+
+
+3. Jakarta Validation (@NotNull, @Email, etc.) – Ensures data integrity.
+
+
+4. Consistent naming and formatting – Easy to read and maintain.
+
+
+
+This approach is simple, beginner-friendly, and follows best practices. Let me know if you need further explanations!
+
