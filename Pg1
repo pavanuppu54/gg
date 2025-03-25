@@ -1,0 +1,371 @@
+I'll help you improve your code by making it more beginner-friendly, structured, and using best practices. Here's how I'll enhance it:
+
+1. Use Lombok for boilerplate code reduction (@Getter, @Setter, @NoArgsConstructor, @AllArgsConstructor, @Builder).
+
+
+2. Fix validation issues by adding Jakarta Validation (@NotNull, @Email, @Size, etc.).
+
+
+3. Simplify DTO conversion using static factory methods.
+
+
+4. Ensure correct mappings for relationships.
+
+
+5. Improve SQL schema by making column names consistent.
+
+
+
+
+---
+
+Updated Code:
+
+1. Employee Entity
+
+package org.example.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+@Entity
+@Table(name = "employee")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class Employee {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+
+    @Column(name = "name", nullable = false)
+    private String name;
+
+    @Column(name = "email", nullable = false, unique = true)
+    private String email;
+
+    @ElementCollection
+    @CollectionTable(name = "employee_skills", joinColumns = @JoinColumn(name = "employee_id"))
+    @Column(name = "skill")
+    private Set<String> skills = new HashSet<>();
+
+    @OneToMany(mappedBy = "employee", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<EmploymentHistory> employmentHistories;
+
+    @Embedded
+    private Address address;
+
+    @ManyToMany
+    @JoinTable(
+        name = "employee_project",
+        joinColumns = @JoinColumn(name = "employee_id"),
+        inverseJoinColumns = @JoinColumn(name = "project_id")
+    )
+    private Set<Project> projects = new HashSet<>();
+}
+
+
+---
+
+2. EmployeeDTO (with Validation)
+
+package org.example.dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.*;
+
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.example.entity.Employee;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class EmployeeDTO {
+
+    private Integer id;
+
+    @NotNull(message = "Name cannot be null")
+    @Size(min = 2, max = 50, message = "Name must be between 2 and 50 characters")
+    private String name;
+
+    @NotNull(message = "Email cannot be null")
+    @Email(message = "Invalid email format")
+    private String email;
+
+    private Set<String> skills;
+    private AddressDTO address;
+    private List<EmploymentHistoryDTO> employmentHistories;
+    private List<Integer> projectIds;
+
+    // Convert DTO to Entity
+    public Employee toEntity(List<Project> projects) {
+        return Employee.builder()
+                .id(this.id)
+                .name(this.name)
+                .email(this.email)
+                .skills(this.skills)
+                .address(this.address != null ? this.address.toEntity() : null)
+                .employmentHistories(this.employmentHistories != null ?
+                        this.employmentHistories.stream().map(EmploymentHistoryDTO::toEntity).toList() : null)
+                .projects(new HashSet<>(projects))
+                .build();
+    }
+
+    // Convert Entity to DTO
+    public static EmployeeDTO fromEntity(Employee employee) {
+        return EmployeeDTO.builder()
+                .id(employee.getId())
+                .name(employee.getName())
+                .email(employee.getEmail())
+                .skills(employee.getSkills())
+                .address(employee.getAddress() != null ? AddressDTO.fromEntity(employee.getAddress()) : null)
+                .employmentHistories(employee.getEmploymentHistories() != null ?
+                        employee.getEmploymentHistories().stream().map(EmploymentHistoryDTO::fromEntity).toList() : null)
+                .projectIds(employee.getProjects() != null ?
+                        employee.getProjects().stream().map(Project::getId).toList() : null)
+                .build();
+    }
+}
+
+
+---
+
+3. Project Entity
+
+package org.example.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+@Entity
+@Table(name = "project")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class Project {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+
+    @Column(name = "project_name", nullable = false)
+    private String projectName;
+}
+
+
+---
+
+4. ProjectDTO
+
+package org.example.dto;
+
+import jakarta.validation.constraints.NotNull;
+import lombok.*;
+import org.example.entity.Project;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class ProjectDTO {
+
+    private Integer id;
+
+    @NotNull(message = "Project name cannot be null")
+    private String projectName;
+
+    public Project toEntity() {
+        return Project.builder()
+                .id(this.id)
+                .projectName(this.projectName)
+                .build();
+    }
+
+    public static ProjectDTO fromEntity(Project project) {
+        return ProjectDTO.builder()
+                .id(project.getId())
+                .projectName(project.getProjectName())
+                .build();
+    }
+}
+
+
+---
+
+5. EmploymentHistory Entity
+
+package org.example.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+@Entity
+@Table(name = "employment_history")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class EmploymentHistory {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+
+    @Column(name = "company_name", nullable = false)
+    private String companyName;
+
+    @Column(name = "job_title", nullable = false)
+    private String jobTitle;
+
+    @Column(name = "experience", nullable = false)
+    private Integer experience;
+
+    @ManyToOne
+    @JoinColumn(name = "employee_id")
+    private Employee employee;
+}
+
+
+---
+
+6. EmploymentHistoryDTO
+
+package org.example.dto;
+
+import jakarta.validation.constraints.NotNull;
+import lombok.*;
+import org.example.entity.EmploymentHistory;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class EmploymentHistoryDTO {
+
+    @NotNull(message = "Company name cannot be null")
+    private String companyName;
+
+    @NotNull(message = "Job title cannot be null")
+    private String jobTitle;
+
+    @NotNull(message = "Experience cannot be null")
+    private Integer experience;
+
+    public EmploymentHistory toEntity() {
+        return EmploymentHistory.builder()
+                .companyName(this.companyName)
+                .jobTitle(this.jobTitle)
+                .experience(this.experience)
+                .build();
+    }
+
+    public static EmploymentHistoryDTO fromEntity(EmploymentHistory history) {
+        return EmploymentHistoryDTO.builder()
+                .companyName(history.getCompanyName())
+                .jobTitle(history.getJobTitle())
+                .experience(history.getExperience())
+                .build();
+    }
+}
+
+
+---
+
+7. Address (Embedded)
+
+package org.example.entity;
+
+import jakarta.persistence.Embeddable;
+import lombok.*;
+
+@Embeddable
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class Address {
+    private String city;
+    private String state;
+    private Integer pinCode;
+}
+
+
+---
+
+8. AddressDTO
+
+package org.example.dto;
+
+import lombok.*;
+import org.example.entity.Address;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class AddressDTO {
+
+    private String city;
+    private String state;
+    private Integer pinCode;
+
+    public Address toEntity() {
+        return Address.builder()
+                .city(this.city)
+                .state(this.state)
+                .pinCode(this.pinCode)
+                .build();
+    }
+
+    public static AddressDTO fromEntity(Address address) {
+        return AddressDTO.builder()
+                .city(address.getCity())
+                .state(address.getState())
+                .pinCode(address.getPinCode())
+                .build();
+    }
+}
+
+
+---
+
+Improvements:
+
+1. Lombok annotations reduce boilerplate code.
+
+
+2. Builder pattern makes object creation easier.
+
+
+3. Static factory methods for conversion.
+
+
+4. Jakarta validation ensures data integrity.
+
+
+5. Fixed entity mapping issues in relationships.
+
+
+
+This makes your Spring Boot project beginner-friendly and clean. Let me know if you need more clarifications!
+
