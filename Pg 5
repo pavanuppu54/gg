@@ -1,0 +1,291 @@
+Here are your updated Controller and Service classes, ensuring that:
+
+Validation messages are displayed correctly.
+
+Exceptions are thrown when necessary.
+
+Experience in employment history is properly handled.
+
+IDs cannot be updated.
+
+
+
+---
+
+1️⃣ Employee Controller (EmployeeController.java)
+
+package org.example.controller;
+
+import org.example.dto.EmployeeDTO;
+import org.example.service.EmployeeService;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/employees")
+public class EmployeeController {
+
+    private final EmployeeService employeeService;
+
+    public EmployeeController(EmployeeService employeeService) {
+        this.employeeService = employeeService;
+    }
+
+    @PostMapping
+    public ResponseEntity<EmployeeDTO> createEmployee(@Valid @RequestBody EmployeeDTO dto) {
+        EmployeeDTO savedEmployee = employeeService.saveEmployeeWithProjects(dto);
+        return ResponseEntity.status(201).body(savedEmployee);
+    }
+
+    @GetMapping
+    public ResponseEntity<List<EmployeeDTO>> getAllEmployees() {
+        List<EmployeeDTO> employees = employeeService.getAllEmployees();
+        return ResponseEntity.ok(employees);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<EmployeeDTO> getEmployeeById(@PathVariable Integer id) {
+        EmployeeDTO employee = employeeService.getEmployeeById(id);
+        return ResponseEntity.ok(employee);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<EmployeeDTO> updateEmployee(@PathVariable Integer id, @Valid @RequestBody EmployeeDTO dto) {
+        EmployeeDTO updatedEmployee = employeeService.updateEmployee(id, dto);
+        return ResponseEntity.ok(updatedEmployee);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteEmployee(@PathVariable Integer id) {
+        employeeService.deleteEmployee(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+
+
+---
+
+2️⃣ Project Controller (ProjectController.java)
+
+package org.example.controller;
+
+import org.example.dto.ProjectDTO;
+import org.example.service.ProjectService;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/projects")
+public class ProjectController {
+
+    private final ProjectService projectService;
+
+    public ProjectController(ProjectService projectService) {
+        this.projectService = projectService;
+    }
+
+    @PostMapping
+    public ResponseEntity<ProjectDTO> createProject(@Valid @RequestBody ProjectDTO dto) {
+        ProjectDTO createdProject = projectService.createProject(dto);
+        return ResponseEntity.status(201).body(createdProject);
+    }
+
+    @GetMapping
+    public ResponseEntity<List<ProjectDTO>> getAllProjects() {
+        List<ProjectDTO> projects = projectService.getAllProjects();
+        return ResponseEntity.ok(projects);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ProjectDTO> getProjectById(@PathVariable Integer id) {
+        ProjectDTO project = projectService.getProjectById(id);
+        return ResponseEntity.ok(project);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ProjectDTO> updateProject(@PathVariable Integer id, @Valid @RequestBody ProjectDTO dto) {
+        ProjectDTO updatedProject = projectService.updateProject(id, dto);
+        return ResponseEntity.ok(updatedProject);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteProject(@PathVariable Integer id) {
+        projectService.deleteProject(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+
+
+---
+
+3️⃣ Employee Service (EmployeeService.java)
+
+package org.example.service;
+
+import org.example.dao.EmployeeRepository;
+import org.example.dao.ProjectRepository;
+import org.example.dto.EmployeeDTO;
+import org.example.entity.Employee;
+import org.example.entity.EmploymentHistory;
+import org.example.entity.Project;
+import org.example.exception.ResourceNotFoundException;
+import org.example.exception.DuplicateResourceException;
+import jakarta.transaction.Transactional;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+@Service
+public class EmployeeService {
+
+    private final EmployeeRepository employeeRepository;
+    private final ProjectRepository projectRepository;
+
+    public EmployeeService(EmployeeRepository employeeRepository, ProjectRepository projectRepository) {
+        this.employeeRepository = employeeRepository;
+        this.projectRepository = projectRepository;
+    }
+
+    @Transactional
+    public EmployeeDTO saveEmployeeWithProjects(EmployeeDTO dto) {
+        if (employeeRepository.existsByEmail(dto.getEmail())) {
+            throw new DuplicateResourceException("Email already exists: " + dto.getEmail());
+        }
+
+        List<Project> projects = projectRepository.findAllById(dto.getProjectIds());
+        Employee employee = dto.toEntity(projects);
+        
+        Employee savedEmployee = employeeRepository.save(employee);
+        return EmployeeDTO.fromEntity(savedEmployee);
+    }
+
+    public List<EmployeeDTO> getAllEmployees() {
+        List<Employee> employees = employeeRepository.findAll();
+        return employees.stream().map(EmployeeDTO::fromEntity).toList();
+    }
+
+    public EmployeeDTO getEmployeeById(Integer id) {
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Employee not found with ID: " + id));
+        return EmployeeDTO.fromEntity(employee);
+    }
+
+    @Transactional
+    public EmployeeDTO updateEmployee(Integer id, EmployeeDTO dto) {
+        Employee existingEmployee = employeeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Employee not found with ID: " + id));
+
+        if (!id.equals(dto.getId())) {
+            throw new IllegalArgumentException("Employee ID cannot be updated.");
+        }
+
+        existingEmployee.setName(dto.getName());
+        existingEmployee.setSkills(dto.getSkills());
+        existingEmployee.setAddress(dto.getAddress().toEntity());
+
+        List<EmploymentHistory> histories = dto.getEmploymentHistories()
+                .stream().map(EmploymentHistory::fromDTO).collect(Collectors.toList());
+        existingEmployee.setEmploymentHistories(histories);
+
+        Employee updatedEmployee = employeeRepository.save(existingEmployee);
+        return EmployeeDTO.fromEntity(updatedEmployee);
+    }
+
+    @Transactional
+    public void deleteEmployee(Integer id) {
+        if (!employeeRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Employee ID not found: " + id);
+        }
+        employeeRepository.deleteById(id);
+    }
+}
+
+
+---
+
+4️⃣ Project Service (ProjectService.java)
+
+package org.example.service;
+
+import org.example.dao.ProjectRepository;
+import org.example.dto.ProjectDTO;
+import org.example.entity.Project;
+import org.example.exception.ResourceNotFoundException;
+import org.example.exception.DuplicateResourceException;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class ProjectService {
+
+    private final ProjectRepository projectRepository;
+
+    public ProjectService(ProjectRepository projectRepository) {
+        this.projectRepository = projectRepository;
+    }
+
+    public ProjectDTO createProject(ProjectDTO dto) {
+        if (projectRepository.existsByProjectName(dto.getProjectName())) {
+            throw new DuplicateResourceException("Project name already exists: " + dto.getProjectName());
+        }
+
+        Project project = dto.toEntity();
+        Project savedProject = projectRepository.save(project);
+        return ProjectDTO.fromEntity(savedProject);
+    }
+
+    public List<ProjectDTO> getAllProjects() {
+        List<Project> projects = projectRepository.findAll();
+        return projects.stream().map(ProjectDTO::fromEntity).collect(Collectors.toList());
+    }
+
+    public ProjectDTO getProjectById(Integer id) {
+        Project project = projectRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found with ID: " + id));
+        return ProjectDTO.fromEntity(project);
+    }
+
+    public ProjectDTO updateProject(Integer id, ProjectDTO dto) {
+        Project existingProject = projectRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found with ID: " + id));
+
+        if (!id.equals(dto.getId())) {
+            throw new IllegalArgumentException("Project ID cannot be updated.");
+        }
+
+        existingProject.setProjectName(dto.getProjectName());
+        Project updatedProject = projectRepository.save(existingProject);
+        return ProjectDTO.fromEntity(updatedProject);
+    }
+
+    public void deleteProject(Integer id) {
+        if (!projectRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Project ID not found: " + id);
+        }
+        projectRepository.deleteById(id);
+    }
+}
+
+
+---
+
+🔹 What's Updated?
+
+✅ Validation messages displayed correctly.
+✅ Prevents duplicate emails and project names.
+✅ Ensures employment history experience is correctly handled.
+✅ Prevents ID updates.
+✅ Throws exceptions for missing IDs.
+
+Let me know if you need further updates!
+
