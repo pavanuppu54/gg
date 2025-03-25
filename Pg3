@@ -1,0 +1,197 @@
+Here are the Project and EmploymentHistory entity and DTO classes with a simple and beginner-friendly approach.
+
+
+---
+
+1. Project Entity
+
+package org.example.entity;
+
+import jakarta.persistence.*;
+
+@Entity
+@Table(name = "project")
+public class Project {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+
+    @Column(name = "project_name", nullable = false)
+    private String projectName;
+
+    public Project() {}
+
+    public Integer getId() { return id; }
+    public void setId(Integer id) { this.id = id; }
+
+    public String getProjectName() { return projectName; }
+    public void setProjectName(String projectName) { this.projectName = projectName; }
+}
+
+
+---
+
+2. ProjectDTO
+
+package org.example.dto;
+
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import org.example.entity.Project;
+
+public class ProjectDTO {
+
+    private Integer id;
+
+    @NotNull(message = "Project name cannot be null")
+    @Size(min = 2, max = 50, message = "Project name must be between 2 and 50 characters")
+    private String projectName;
+
+    public ProjectDTO() {}
+
+    public Integer getId() { return id; }
+    public void setId(Integer id) { this.id = id; }
+
+    public String getProjectName() { return projectName; }
+    public void setProjectName(String projectName) { this.projectName = projectName; }
+
+    public Project toEntity() {
+        Project project = new Project();
+        project.setId(this.id);
+        project.setProjectName(this.projectName);
+        return project;
+    }
+
+    public static ProjectDTO fromEntity(Project project) {
+        ProjectDTO dto = new ProjectDTO();
+        dto.setId(project.getId());
+        dto.setProjectName(project.getProjectName());
+        return dto;
+    }
+}
+
+
+---
+
+3. EmploymentHistory Entity
+
+package org.example.entity;
+
+import jakarta.persistence.*;
+
+@Entity
+@Table(name = "employment_history")
+public class EmploymentHistory {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+
+    @Column(name = "company_name", nullable = false)
+    private String companyName;
+
+    @Column(name = "job_title", nullable = false)
+    private String jobTitle;
+
+    @Column(name = "experience", nullable = false)
+    private Integer experience;
+
+    @ManyToOne
+    @JoinColumn(name = "employee_id")
+    private Employee employee;
+
+    public EmploymentHistory() {}
+
+    public Integer getId() { return id; }
+    public void setId(Integer id) { this.id = id; }
+
+    public String getCompanyName() { return companyName; }
+    public void setCompanyName(String companyName) { this.companyName = companyName; }
+
+    public String getJobTitle() { return jobTitle; }
+    public void setJobTitle(String jobTitle) { this.jobTitle = jobTitle; }
+
+    public Integer getExperience() { return experience; }
+    public void setExperience(Integer experience) { this.experience = experience; }
+
+    public Employee getEmployee() { return employee; }
+    public void setEmployee(Employee employee) { this.employee = employee; }
+}
+
+
+---
+
+4. EmploymentHistoryDTO
+
+package org.example.dto;
+
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import org.example.entity.EmploymentHistory;
+
+public class EmploymentHistoryDTO {
+
+    private Integer id;
+
+    @NotNull(message = "Company name cannot be null")
+    private String companyName;
+
+    @NotNull(message = "Job title cannot be null")
+    private String jobTitle;
+
+    @Positive(message = "Experience must be positive")
+    private Integer experience;
+
+    public EmploymentHistoryDTO() {}
+
+    public Integer getId() { return id; }
+    public void setId(Integer id) { this.id = id; }
+
+    public String getCompanyName() { return companyName; }
+    public void setCompanyName(String companyName) { this.companyName = companyName; }
+
+    public String getJobTitle() { return jobTitle; }
+    public void setJobTitle(String jobTitle) { this.jobTitle = jobTitle; }
+
+    public Integer getExperience() { return experience; }
+    public void setExperience(Integer experience) { this.experience = experience; }
+
+    public EmploymentHistory toEntity() {
+        EmploymentHistory history = new EmploymentHistory();
+        history.setId(this.id);
+        history.setCompanyName(this.companyName);
+        history.setJobTitle(this.jobTitle);
+        history.setExperience(this.experience);
+        return history;
+    }
+
+    public static EmploymentHistoryDTO fromEntity(EmploymentHistory history) {
+        EmploymentHistoryDTO dto = new EmploymentHistoryDTO();
+        dto.setId(history.getId());
+        dto.setCompanyName(history.getCompanyName());
+        dto.setJobTitle(history.getJobTitle());
+        dto.setExperience(history.getExperience());
+        return dto;
+    }
+}
+
+
+---
+
+Key Features & Improvements:
+
+1. Simple, clear structure – No builder pattern, just constructors and setters.
+
+
+2. Validation included – Ensures data integrity using Jakarta Validation (@NotNull, @Positive).
+
+
+3. DTO conversion methods (toEntity() and fromEntity()) – Easy to understand and use.
+
+
+4. Consistent formatting – Readable and beginner-friendly.
+
+
+
+Let me know if you need further modifications!
