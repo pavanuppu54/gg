@@ -1,0 +1,1034 @@
+Your mentor is suggesting a more structured way to handle exceptions by using a custom error response object instead of just returning plain strings. Below is an updated version of your GlobalExceptionHandler and related changes to improve your exception handling while keeping it simple and easy to understand.
+
+
+---
+
+1. Create an ErrorResponse Class
+
+This class will be used to return structured error responses.
+
+public record ErrorResponse(HttpStatus status, String message, String errorCode) {}
+
+
+---
+
+2. Update GlobalExceptionHandler
+
+Modify your exception handler to return ErrorResponse instead of plain strings.
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(DuplicateEmailException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateEmail(DuplicateEmailException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), "DUPLICATE_EMAIL"));
+    }
+
+    @ExceptionHandler(DuplicateProjectNameException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateProjectName(DuplicateProjectNameException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), "DUPLICATE_PROJECT_NAME"));
+    }
+
+    @ExceptionHandler(IdNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleIdNotFound(IdNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(HttpStatus.NOT_FOUND, ex.getMessage(), "ID_NOT_FOUND"));
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, String>> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        Map<String, String> errors = new HashMap<>();
+        ex.getBindingResult().getAllErrors().forEach(error -> {
+            String fieldName = ((FieldError) error).getField();
+            String errorMessage = error.getDefaultMessage();
+            errors.put(fieldName, errorMessage);
+        });
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong", "INTERNAL_ERROR"));
+    }
+}
+
+
+---
+
+3. Update Exception Classes
+
+Your exception classes should remain the same.
+
+public class DuplicateEmailException extends RuntimeException {
+    public DuplicateEmailException(String message) {
+        super(message);
+    }
+}
+
+public class DuplicateProjectNameException extends RuntimeException {
+    public DuplicateProjectNameException(String message) {
+        super(message);
+    }
+}
+
+public class IdNotFoundException extends RuntimeException {
+    public IdNotFoundException(String message) {
+        super(message);
+    }
+}
+
+
+---
+
+How This Works
+
+Instead of returning plain strings, we now return a structured JSON response like this:
+
+
+Example: Duplicate Email Exception
+
+Request:
+
+{
+    "name": "Pavan",
+    "email": "manasa2005@gmail.com",
+    "skills": ["Java", "Spring Boot"],
+    "employmentHistories": [
+        {
+            "companyName": "TCS",
+            "jobTitle": "Dev",
+            "experience": 1
+        }
+    ],
+    "address": {
+        "city": "Mangalagiri",
+        "state": "A.P",
+        "pinCode": 522503
+    },
+    "projectIds": [1, 2]
+}
+
+If this email already exists, the response will be:
+
+Response:
+
+{
+    "status": "BAD_REQUEST",
+    "message": "Email already exists: manasa2005@gmail.com",
+    "errorCode": "DUPLICATE_EMAIL"
+}
+
+
+---
+
+This keeps things simple and beginner-friendly while making your exception responses more structured and easy to understand. Let me know if you need any further modifications!
+
+
+
+
+
+You're right! You haven't implemented the update functionality for employees and projects yet. Below are simple implementations for both.
+
+
+---
+
+1. Update Employee (updateEmployee method in EmployeeService)
+
+This method ensures:
+
+Employee ID exists, otherwise, throws an exception.
+
+The email cannot be changed.
+
+The employee details are updated.
+
+
+@Transactional
+public EmployeeDTO updateEmployee(Integer id, EmployeeDTO dto) {
+    Employee existingEmployee = employeeRepository.findById(id)
+            .orElseThrow(() -> new IdNotFoundException("Employee not found with ID: " + id));
+
+    if (!existingEmployee.getEmail().equals(dto.getEmail())) {
+        throw new RuntimeException("Email cannot be updated");
+    }
+
+    existingEmployee.setName(dto.getName());
+    existingEmployee.setSkills(dto.getSkills());
+    existingEmployee.setAddress(dto.getAddress());
+    
+    // Update employment history
+    existingEmployee.getEmploymentHistories().clear();
+    existingEmployee.getEmploymentHistories().addAll(
+            dto.getEmploymentHistories().stream()
+                    .map(history -> new EmploymentHistory(null, history.getCompanyName(), history.getJobTitle(), history.getExperience(), existingEmployee))
+                    .toList()
+    );
+
+    // Update projects
+    List<Project> projects = projectRepository.findAllById(dto.getProjectIds());
+    existingEmployee.setProjects(new HashSet<>(projects));
+
+    Employee updatedEmployee = employeeRepository.save(existingEmployee);
+    return EmployeeDTO.fromEntity(updatedEmployee);
+}
+
+
+---
+
+2. Update Project (updateProject method in ProjectService)
+
+This method ensures:
+
+Project ID exists, otherwise, throws an exception.
+
+The project name cannot be changed.
+
+The project details are updated.
+
+
+@Transactional
+public ProjectDTO updateProject(Integer id, ProjectDTO dto) {
+    Project existingProject = projectRepository.findById(id)
+            .orElseThrow(() -> new IdNotFoundException("Project not found with ID: " + id));
+
+    if (!existingProject.getProjectName().equals(dto.getProjectName())) {
+        throw new RuntimeException("Project name cannot be updated");
+    }
+
+    // Update other project fields (if applicable in your schema)
+    Project updatedProject = projectRepository.save(existingProject);
+    return ProjectDTO.fromEntity(updatedProject);
+}
+
+
+---
+
+3. Update Controller Methods
+
+Now, add these methods to your EmployeeController and ProjectController.
+
+EmployeeController
+
+@PutMapping("/{id}")
+public ResponseEntity<EmployeeDTO> updateEmployee(@PathVariable Integer id, @Valid @RequestBody EmployeeDTO dto) {
+    EmployeeDTO updatedEmployee = employeeService.updateEmployee(id, dto);
+    return ResponseEntity.ok(updatedEmployee);
+}
+
+ProjectController
+
+@PutMapping("/{id}")
+public ResponseEntity<ProjectDTO> updateProject(@PathVariable Integer id, @Valid @RequestBody ProjectDTO dto) {
+    ProjectDTO updatedProject = projectService.updateProject(id, dto);
+    return ResponseEntity.ok(updatedProject);
+}
+
+
+---
+
+How It Works
+
+✅ Updating Employee Example
+
+Request (PUT /employee/1)
+
+{
+    "name": "Pavan Kumar",
+    "email": "manasa2005@gmail.com",
+    "skills": ["Java", "Spring Boot"],
+    "employmentHistories": [
+        {
+            "companyName": "TCS",
+            "jobTitle": "Senior Developer",
+            "experience": 3
+        }
+    ],
+    "address": {
+        "city": "Mangalagiri",
+        "state": "A.P",
+        "pinCode": 522503
+    },
+    "projectIds": [1, 3]
+}
+
+Response
+
+{
+    "id": 1,
+    "name": "Pavan Kumar",
+    "email": "manasa2005@gmail.com",
+    "skills": ["Java", "Spring Boot"],
+    "employmentHistories": [
+        {
+            "id": 5,
+            "companyName": "TCS",
+            "jobTitle": "Senior Developer",
+            "experience": 3
+        }
+    ],
+    "address": {
+        "city": "Mangalagiri",
+        "state": "A.P",
+        "pinCode": 522503
+    },
+    "projectIds": [1, 3]
+}
+
+
+---
+
+Let me know if you need further modifications!
+
+
+Understanding Your Mentor’s Instructions
+
+Your mentor asked you to:
+
+1. Add logging to APIs using Logback.
+
+
+2. Use a rolling file appender to store logs in a file instead of just printing them in the console.
+
+
+3. Specify a log path in Logback config so that logs are saved in a specific location on your system.
+
+
+4. Later, work on Hibernate Envers (which is for auditing database changes).
+
+
+
+
+---
+
+1️⃣ What is Logging in Spring Boot?
+
+Logging helps track application activities by writing logs to the console and log files.
+For example, when an employee is created or deleted, the application logs these events.
+
+Spring Boot automatically uses Logback for logging.
+
+
+---
+
+2️⃣ What is a Rolling File Appender?
+
+By default, logs only appear in the console.
+
+A rolling file appender saves logs to a file and creates a new log file daily or when the file gets too big.
+
+
+
+---
+
+3️⃣ Implementing Logging with Logback
+
+Step 1: Create a Logback Configuration File
+
+Create a file named logback-spring.xml inside src/main/resources/.
+
+logback-spring.xml
+
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- Log file location (Modify path as needed) -->
+    <property name="LOG_PATH" value="./logs" />
+
+    <!-- Console Appender: Displays logs in the console -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%level] %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Rolling File Appender: Saves logs to a file and rotates logs daily -->
+    <appender name="ROLLING_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/application.log</file>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%level] %logger{36} - %msg%n</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- New log file is created daily -->
+            <fileNamePattern>${LOG_PATH}/application-%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>7</maxHistory>  <!-- Keeps logs for the last 7 days -->
+        </rollingPolicy>
+    </appender>
+
+    <!-- Root Logger: Uses both Console and Rolling File -->
+    <root level="info">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="ROLLING_FILE"/>
+    </root>
+
+</configuration>
+
+✔ Console Appender: Logs appear in the console.
+✔ Rolling File Appender: Logs are saved in logs/application.log and rotated daily.
+
+
+---
+
+Step 2: Add Logging to Your EmployeeController
+
+Modify your EmployeeController to use logging.
+
+EmployeeController.java
+
+package com.example.employee.controller;
+
+import com.example.employee.dto.EmployeeDTO;
+import com.example.employee.service.EmployeeService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/employees")
+public class EmployeeController {
+
+    private static final Logger logger = LoggerFactory.getLogger(EmployeeController.class);
+    private final EmployeeService employeeService;
+
+    public EmployeeController(EmployeeService employeeService) {
+        this.employeeService = employeeService;
+    }
+
+    @GetMapping
+    public List<EmployeeDTO> getAllEmployees() {
+        logger.info("Fetching all employees");
+        return employeeService.getAllEmployees();
+    }
+
+    @GetMapping("/{id}")
+    public EmployeeDTO getEmployeeById(@PathVariable Long id) {
+        logger.info("Fetching employee with ID: {}", id);
+        return employeeService.getEmployeeById(id);
+    }
+
+    @PostMapping
+    public EmployeeDTO createEmployee(@RequestBody EmployeeDTO employeeDTO) {
+        logger.info("Creating new employee: {}", employeeDTO.getName());
+        return employeeService.createEmployee(employeeDTO);
+    }
+
+    @PutMapping("/{id}")
+    public EmployeeDTO updateEmployee(@PathVariable Long id, @RequestBody EmployeeDTO employeeDTO) {
+        logger.info("Updating employee with ID: {}", id);
+        return employeeService.updateEmployee(id, employeeDTO);
+    }
+
+    @DeleteMapping("/{id}")
+    public void deleteEmployee(@PathVariable Long id) {
+        logger.warn("Deleting employee with ID: {}", id);
+        employeeService.deleteEmployee(id);
+    }
+}
+
+✔ Logs every API call (GET, POST, PUT, DELETE).
+✔ WARN level logs for deletion operations (since deletions are more critical).
+
+
+---
+
+Step 3: Run and Test
+
+1. Start the Spring Boot application (mvn spring-boot:run).
+
+
+2. Make API requests:
+
+GET /api/employees
+
+POST /api/employees
+
+DELETE /api/employees/{id}
+
+
+
+3. Check Logs:
+
+Console Output:
+
+2025-03-25 17:41:51 [INFO] c.b.controller.EmployeeController - Fetching all employees
+2025-03-25 17:41:57 [INFO] c.b.controller.EmployeeController - Fetching employee with ID: 1
+2025-03-25 17:42:06 [WARN] c.b.controller.EmployeeController - Deleting employee with ID:1
+2025-03-25 17:43:33 [INFO] c.b.controller.EmployeeController - Fetching all employees
+2025-03-25 17:43:39 [INFO] c.b.controller.EmployeeController - Creating new employee: pavan
+
+File Output (logs/application.log):
+
+2025-03-25 17:41:51 [INFO] c.b.controller.EmployeeController - Fetching all employees
+2025-03-25 17:41:57 [INFO] c.b.controller.EmployeeController - Fetching employee with ID: 1
+2025-03-25 17:42:06 [WARN] c.b.controller.EmployeeController - Deleting employee with ID:1
+2025-03-25 17:43:33 [INFO] c.b.controller.EmployeeController - Fetching all employees
+2025-03-25 17:43:39 [INFO] c.b.controller.EmployeeController - Creating new employee: pavan
+
+
+
+
+Now, logs automatically rotate daily and are stored in logs/ directory.
+
+
+---
+
+4️⃣ Summary
+
+✔ Logs are printed in the console and stored in a file
+✔ Rolling file appender creates a new log file daily
+✔ Log files are stored in logs/ directory
+
+
+---
+
+5️⃣ Next Steps: Hibernate Envers
+
+Hibernate Envers is used for auditing database changes.
+Now that logging is complete, let me know when you're ready to learn Hibernate Envers! 🚀
+
+I'll provide a full, step-by-step explanation of your Spring Boot project, including the code for services, controllers, exception handling, and how everything connects.
+
+Step 1: Understanding the Project Structure
+
+Your project handles employees and projects. The main functionalities are:
+
+Creating, updating, retrieving, and deleting employees and projects.
+
+Ensuring validation (like unique emails for employees and unique project names).
+
+Handling exceptions centrally using a global exception handler.
+
+
+
+---
+
+Step 2: Define DTOs (Data Transfer Objects)
+
+DTOs are used to transfer data between layers without exposing your entity classes.
+
+EmployeeDTO.java
+
+public class EmployeeDTO {
+    private Integer id;
+    private String name;
+    private String email;
+    private List<String> skills;
+    private AddressDTO address;
+    private List<EmploymentHistoryDTO> employmentHistories;
+    private List<Integer> projectIds;
+
+    // Getters and setters
+}
+
+ProjectDTO.java
+
+public class ProjectDTO {
+    private Integer id;
+    private String projectName;
+
+    // Getters and setters
+}
+
+AddressDTO.java
+
+public class AddressDTO {
+    private String city;
+    private String state;
+    private String pinCode;
+
+    // Getters and setters
+}
+
+EmploymentHistoryDTO.java
+
+public class EmploymentHistoryDTO {
+    private Integer id;
+    private String companyName;
+    private String jobTitle;
+    private int experience;
+
+    // Getters and setters
+}
+
+
+---
+
+Step 3: Define Entity Classes (Database Tables Representation)
+
+Employee.java
+
+@Entity
+public class Employee {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+    
+    private String name;
+    
+    @Column(unique = true)
+    private String email;
+    
+    @ElementCollection
+    private List<String> skills;
+    
+    @Embedded
+    private Address address;
+    
+    @OneToMany(mappedBy = "employee", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<EmploymentHistory> employmentHistories = new ArrayList<>();
+    
+    @ManyToMany
+    @JoinTable(
+        name = "employee_project",
+        joinColumns = @JoinColumn(name = "employee_id"),
+        inverseJoinColumns = @JoinColumn(name = "project_id")
+    )
+    private List<Project> projects = new ArrayList<>();
+    
+    // Getters and setters
+}
+
+Project.java
+
+@Entity
+public class Project {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+    
+    @Column(unique = true)
+    private String projectName;
+
+    @ManyToMany(mappedBy = "projects")
+    private List<Employee> employees = new ArrayList<>();
+
+    // Getters and setters
+}
+
+
+---
+
+Step 4: Define Repositories
+
+EmployeeRepository.java
+
+public interface EmployeeRepository extends JpaRepository<Employee, Integer> {
+    boolean existsByEmail(String email);
+}
+
+ProjectRepository.java
+
+public interface ProjectRepository extends JpaRepository<Project, Integer> {
+    boolean existsByProjectName(String projectName);
+}
+
+
+---
+
+Step 5: Define Service Layer
+
+EmployeeService.java
+
+@Service
+public class EmployeeService {
+    
+    @Autowired
+    private EmployeeRepository employeeRepository;
+    
+    @Autowired
+    private ProjectRepository projectRepository;
+
+    public EmployeeDTO saveEmployeeWithProjects(EmployeeDTO dto) {
+        if (employeeRepository.existsByEmail(dto.getEmail())) {
+            throw new DuplicateEmailException("Email already exists: " + dto.getEmail());
+        }
+
+        List<Project> projects = projectRepository.findAllById(dto.getProjectIds());
+        Employee employee = dto.toEntity(projects);
+        Employee savedEmployee = employeeRepository.save(employee);
+
+        return EmployeeDTO.fromEntity(savedEmployee);
+    }
+
+    public EmployeeDTO updateEmployee(Integer id, EmployeeDTO dto) {
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new IdNotFoundException("Employee not found with ID: " + id));
+
+        if (!employee.getId().equals(id)) {
+            throw new IllegalArgumentException("ID cannot be updated");
+        }
+
+        employee.setName(dto.getName());
+        employee.setEmail(dto.getEmail());
+        employee.setSkills(dto.getSkills());
+        employee.setAddress(dto.getAddress().toEntity());
+
+        List<Project> projects = projectRepository.findAllById(dto.getProjectIds());
+        employee.setProjects(projects);
+
+        Employee updatedEmployee = employeeRepository.save(employee);
+        return EmployeeDTO.fromEntity(updatedEmployee);
+    }
+
+    public void deleteEmployee(Integer id) {
+        if (!employeeRepository.existsById(id)) {
+            throw new IdNotFoundException("Employee ID not found: " + id);
+        }
+        employeeRepository.deleteById(id);
+    }
+}
+
+
+---
+
+ProjectService.java
+
+@Service
+public class ProjectService {
+
+    @Autowired
+    private ProjectRepository projectRepository;
+
+    public ProjectDTO createProject(ProjectDTO dto) {
+        if (projectRepository.existsByProjectName(dto.getProjectName())) {
+            throw new DuplicateProjectNameException("Project name already exists: " + dto.getProjectName());
+        }
+
+        Project project = dto.toEntity();
+        Project savedProject = projectRepository.save(project);
+        return ProjectDTO.fromEntity(savedProject);
+    }
+
+    public ProjectDTO updateProject(Integer id, ProjectDTO dto) {
+        Project project = projectRepository.findById(id)
+                .orElseThrow(() -> new IdNotFoundException("Project not found with ID: " + id));
+
+        if (!project.getId().equals(id)) {
+            throw new IllegalArgumentException("ID cannot be updated");
+        }
+
+        project.setProjectName(dto.getProjectName());
+        Project updatedProject = projectRepository.save(project);
+        return ProjectDTO.fromEntity(updatedProject);
+    }
+
+    public void deleteProject(Integer id) {
+        if (!projectRepository.existsById(id)) {
+            throw new IdNotFoundException("Project ID not found: " + id);
+        }
+        projectRepository.deleteById(id);
+    }
+}
+
+
+---
+
+Step 6: Define Controllers
+
+EmployeeController.java
+
+@RestController
+@RequestMapping("/employees")
+public class EmployeeController {
+
+    @Autowired
+    private EmployeeService employeeService;
+
+    @PostMapping
+    public ResponseEntity<EmployeeDTO> createEmployee(@Valid @RequestBody EmployeeDTO dto) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(employeeService.saveEmployeeWithProjects(dto));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<EmployeeDTO> updateEmployee(@PathVariable Integer id, @Valid @RequestBody EmployeeDTO dto) {
+        return ResponseEntity.ok(employeeService.updateEmployee(id, dto));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteEmployee(@PathVariable Integer id) {
+        employeeService.deleteEmployee(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+
+ProjectController.java
+
+@RestController
+@RequestMapping("/projects")
+public class ProjectController {
+
+    @Autowired
+    private ProjectService projectService;
+
+    @PostMapping
+    public ResponseEntity<ProjectDTO> createProject(@Valid @RequestBody ProjectDTO dto) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(projectService.createProject(dto));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ProjectDTO> updateProject(@PathVariable Integer id, @Valid @RequestBody ProjectDTO dto) {
+        return ResponseEntity.ok(projectService.updateProject(id, dto));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteProject(@PathVariable Integer id) {
+        projectService.deleteProject(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+
+
+---
+
+Step 7: Define Global Exception Handling
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+    
+    @ExceptionHandler(DuplicateEmailException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateEmail(DuplicateEmailException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage()));
+    }
+
+    @ExceptionHandler(IdNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleIdNotFound(IdNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(HttpStatus.NOT_FOUND, ex.getMessage()));
+    }
+}
+
+This setup ensures proper validation, structured error handling, and clear API responses in Postman. Let me know if you need further clarifications!
+
+
+1. What is Hibernate Envers?
+
+Overview
+
+Hibernate Envers is a module of Hibernate that provides audit logging for entity changes. It helps track changes made to database records by maintaining a historical log of modifications (INSERT, UPDATE, DELETE).
+
+Why Use Hibernate Envers?
+
+Track entity changes over time.
+
+Keep history of modifications for auditing and compliance.
+
+Retrieve past versions of an entity easily.
+
+Restore previous states if needed.
+
+
+
+---
+
+Real-World Example
+
+Consider an Employee Management System where you need to track changes made to employee records. Suppose an HR manager updates an employee’s salary or address, you want to maintain a history of these changes.
+
+Without Envers, you would have to create a separate history table and manually track changes. With Envers, Hibernate automatically maintains audit logs for you.
+
+
+---
+
+How to Use Hibernate Envers in a Spring Boot Application
+
+Step 1: Add Dependency
+
+If you’re using Maven, add the Hibernate Envers dependency:
+
+<dependency>
+    <groupId>org.hibernate</groupId>
+    <artifactId>hibernate-envers</artifactId>
+</dependency>
+
+Step 2: Enable Envers in Entity
+
+Use the @Audited annotation on entities you want to track.
+
+import org.hibernate.envers.Audited;
+
+@Entity
+@Audited  // Enables auditing for this entity
+public class Employee {
+    
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+    
+    private String name;
+    private String email;
+    private double salary;
+
+    // Getters and setters
+}
+
+Step 3: Hibernate Will Create Audit Tables
+
+When you enable Envers, Hibernate will create an audit table:
+
+
+---
+
+Step 4: Retrieve Historical Data
+
+You can use the AuditReader API to fetch historical data.
+
+import org.hibernate.envers.AuditReader;
+import org.hibernate.envers.AuditReaderFactory;
+import org.hibernate.envers.query.AuditEntity;
+import org.springframework.stereotype.Service;
+
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import java.util.List;
+
+@Service
+public class EmployeeAuditService {
+    
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    public List<Object[]> getEmployeeAuditHistory(Integer employeeId) {
+        AuditReader auditReader = AuditReaderFactory.get(entityManager);
+        return auditReader.createQuery()
+                .forRevisionsOfEntity(Employee.class, false, true)
+                .add(AuditEntity.id().eq(employeeId))
+                .getResultList();
+    }
+}
+
+Example Output of employee_AUD Table
+
+
+---
+
+Real-World Use Cases for Hibernate Envers
+
+1. Banking Systems → Track changes to account balances or transactions.
+
+
+2. Healthcare Systems → Maintain a history of patient records.
+
+
+3. E-commerce → Track price changes of products over time.
+
+
+4. Legal or Compliance Applications → Maintain records for audits.
+
+
+
+
+---
+
+2. What is a Record Class in Java?
+
+Introduction
+
+A record is a special type of class introduced in Java 14 that provides a compact way to create immutable data objects.
+
+Instead of writing a class with fields, getters, setters, toString(), equals(), and hashCode(), a record generates all these automatically.
+
+Syntax of a Record Class
+
+public record EmployeeRecord(Integer id, String name, String email, double salary) { }
+
+This one line replaces:
+
+public class Employee {
+    private final Integer id;
+    private final String name;
+    private final String email;
+    private final double salary;
+
+    public Employee(Integer id, String name, String email, double salary) {
+        this.id = id;
+        this.name = name;
+        this.email = email;
+        this.salary = salary;
+    }
+
+    public Integer getId() { return id; }
+    public String getName() { return name; }
+    public String getEmail() { return email; }
+    public double getSalary() { return salary; }
+
+    @Override
+    public boolean equals(Object obj) { ... }
+    @Override
+    public int hashCode() { ... }
+    @Override
+    public String toString() { ... }
+}
+
+
+---
+
+Key Features of Records
+
+
+---
+
+Real-World Example of Records
+
+1. Using Record for DTOs
+
+Instead of creating a traditional DTO, we can use a record:
+
+public record EmployeeDTO(Integer id, String name, String email, double salary) { }
+
+2. Using Record in Controller
+
+@RestController
+@RequestMapping("/employees")
+public class EmployeeController {
+    
+    @PostMapping
+    public ResponseEntity<EmployeeDTO> createEmployee(@RequestBody EmployeeDTO dto) {
+        return ResponseEntity.ok(dto);
+    }
+}
+
+3. Using Record in Services
+
+@Service
+public class EmployeeService {
+    
+    public EmployeeDTO getEmployee() {
+        return new EmployeeDTO(1, "John Doe", "john@example.com", 50000);
+    }
+}
+
+
+---
+
+3. Differences Between Records and Regular Classes
+
+
+---
+
+When to Use Hibernate Envers vs. Records?
+
+
+---
+
+Summary
+
+1. Hibernate Envers helps track changes in database records automatically.
+
+
+2. Records simplify the creation of immutable DTOs and reduce boilerplate code.
+
+
+3. Envers is used for auditing, whereas records are used for structured data transfer.
+
+
+
+Let me know if you need further explanations or examples!
+
+
+
+
