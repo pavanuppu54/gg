@@ -1,0 +1,177 @@
+Here are the JSON inputs and outputs for each operation:
+
+
+---
+
+1. Insert Employee (POST /employees)
+
+Request (JSON Input)
+
+{
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "dob": "1990-05-15",
+    "gender": "Male",
+    "salary": 50000,
+    "department": {
+        "id": 1
+    }
+}
+
+Response (JSON Output)
+
+{
+    "id": 1,
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "dob": "1990-05-15",
+    "gender": "Male",
+    "salary": 50000,
+    "department": {
+        "id": 1,
+        "name": "IT",
+        "location": "New York"
+    },
+    "deleted": false
+}
+
+
+---
+
+2. Get All Employees (GET /employees)
+
+Response (JSON Output)
+
+[
+    {
+        "id": 1,
+        "name": "John Doe",
+        "email": "john.doe@example.com",
+        "dob": "1990-05-15",
+        "gender": "Male",
+        "salary": 50000,
+        "department": {
+            "id": 1,
+            "name": "IT",
+            "location": "New York"
+        },
+        "deleted": false
+    }
+]
+
+
+---
+
+3. Get Employee by ID (GET /employees/1)
+
+Response (JSON Output)
+
+{
+    "id": 1,
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "dob": "1990-05-15",
+    "gender": "Male",
+    "salary": 50000,
+    "department": {
+        "id": 1,
+        "name": "IT",
+        "location": "New York"
+    },
+    "deleted": false
+}
+
+
+---
+
+4. Update Employee (PUT /employees/1)
+
+Request (JSON Input)
+
+{
+    "name": "John Doe Updated",
+    "email": "john.doe.updated@example.com",
+    "dob": "1990-05-15",
+    "gender": "Male",
+    "salary": 55000,
+    "department": {
+        "id": 1
+    }
+}
+
+Response (JSON Output)
+
+{
+    "id": 1,
+    "name": "John Doe Updated",
+    "email": "john.doe.updated@example.com",
+    "dob": "1990-05-15",
+    "gender": "Male",
+    "salary": 55000,
+    "department": {
+        "id": 1,
+        "name": "IT",
+        "location": "New York"
+    },
+    "deleted": false
+}
+
+
+---
+
+5. Soft Delete Employee (DELETE /employees/1)
+
+Response (No Content, Status Code: 200 OK or 204 No Content)
+
+After soft deletion, fetching employees will exclude this record.
+
+
+---
+
+6. Get All Employees After Soft Delete (GET /employees)
+
+Response (JSON Output)
+
+[]
+
+(Since the only employee was soft-deleted, no employees are returned.)
+
+
+---
+
+7. Insert Department (POST /departments)
+
+Request (JSON Input)
+
+{
+    "name": "IT",
+    "location": "New York"
+}
+
+Response (JSON Output)
+
+{
+    "id": 1,
+    "name": "IT",
+    "location": "New York"
+}
+
+
+---
+
+8. Get All Departments (GET /departments)
+
+Response (JSON Output)
+
+[
+    {
+        "id": 1,
+        "name": "IT",
+        "location": "New York"
+    }
+]
+
+
+---
+
+These JSON inputs/outputs cover all CRUD operations, including soft delete.
